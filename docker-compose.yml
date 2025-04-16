@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: examgrader-ai-app
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - SESSION_SECRET=examsecretkey123
+      - PYTHONAPI_URL=http://pythonapi:8000
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - pythonapi
+    networks:
+      - examgrader-network
+      
+  pythonapi:
+    build:
+      context: .
+      dockerfile: .dockerfiles/python/Dockerfile
+    container_name: examgrader-ai-python
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    volumes:
+      - ./models:/app/models
+    networks:
+      - examgrader-network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: examgrader-postgres
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=examgrader
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - examgrader-network
+
+  # Optional service for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: examgrader-pgadmin
+    restart: always
+    ports:
+      - "5050:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@examgrader.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
+    depends_on:
+      - postgres
+    networks:
+      - examgrader-network
+
+networks:
+  examgrader-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
