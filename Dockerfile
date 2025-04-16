@@ -1,7 +1,7 @@
-# Use Node.js LTS as the base image for the application
-FROM node:20-slim AS base
+# ===== BUILD STAGE =====
+FROM node:20-slim AS builder
 
-# Install Python 3.11 and other dependencies
+# Install Python and build tools
 RUN apt-get update && apt-get install -y \
     python3.11 \
     python3-pip \
@@ -9,38 +9,45 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Create app directory
 WORKDIR /app
 
-# Create a Python virtual environment
+# Python setup
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Copy Python requirements first (for caching optimization)
-COPY requirements.txt ./
-
-# Install Python dependencies from requirements.txt
+# Install Python deps
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy package.json and package-lock.json
-COPY package*.json ./
-
-# Install Node.js dependencies
+# Install Node deps
+COPY package*.json .
 RUN npm ci
 
-# Copy application source
+# Copy and build app
 COPY . .
-
-# Build the application
 RUN npm run build
 
-# Expose the port the app runs on
-EXPOSE 5000
+# ===== PRODUCTION STAGE =====
+FROM node:20-slim
 
-# Set environment variables
+WORKDIR /app
+
+# Copy Python virtual env
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy built application
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json .
+
+# Runtime config
+EXPOSE 5000
 ENV NODE_ENV=production
 ENV PORT=5000
-ENV SESSION_SECRET=examsecretkey123
 
-# Command to run the application
-CMD ["npm", "start"]
+# Secrets should come from environment at runtime
+# Remove this line and pass via -e or compose file
+# ENV SESSION_SECRET=examsecretkey123
+
+CMD ["node", "dist/main.js"]
