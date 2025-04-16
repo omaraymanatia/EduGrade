@@ -16,17 +16,11 @@ WORKDIR /app
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Install Python dependencies for AI text detection
-RUN pip install --no-cache-dir \
-    scikit-learn==1.4.0 \
-    tensorflow==2.15.0 \
-    transformers==4.38.2 \
-    nltk==3.8.1 \
-    spacy==3.7.2 \
-    torch==2.1.2 \
-    sentence-transformers==2.3.1 \
-    numpy==1.26.3 \
-    pandas==2.2.0
+# Copy Python requirements first (for caching optimization)
+COPY requirements.txt ./
+
+# Install Python dependencies from requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy package.json and package-lock.json
 COPY package*.json ./
