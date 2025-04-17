@@ -12,17 +12,17 @@ import { PlusCircle } from "lucide-react";
 export default function DashboardPage() {
   const { user } = useAuth();
   const [isCreateExamModalOpen, setIsCreateExamModalOpen] = useState(false);
-  
+
   // Get user's full name
   const fullName = user ? `${user.firstName} ${user.lastName}` : "";
-  
+
   const isProfessor = user?.role === "professor";
-  
+
   // Additional data queries for statistics
-  const { data: exams } = useQuery({
+  const { data: exams } = useQuery<Array<{ id: string; [key: string]: any }>>({
     queryKey: ["/api/exams"],
   });
-  
+
   // We would normally fetch these from the API, but we'll use mock data for now
   const statsData = isProfessor
     ? [
@@ -75,8 +75,8 @@ export default function DashboardPage() {
       ];
 
   return (
-    <DashboardLayout 
-      title={`${isProfessor ? 'Professor' : 'Student'} Dashboard`}
+    <DashboardLayout
+      title={`${isProfessor ? "Professor" : "Student"} Dashboard`}
       subtitle={`Welcome back, ${fullName}`}
     >
       {/* Stats Cards */}
@@ -95,15 +95,18 @@ export default function DashboardPage() {
       {isProfessor && (
         <div className="flex flex-col md:flex-row gap-6">
           <div className="bg-white rounded-lg shadow p-6 flex-1">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Create New Exam</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-4">
+              Create New Exam
+            </h3>
             <p className="text-gray-600 mb-6">
-              Create a new exam for your students with customizable questions and settings.
+              Create a new exam for your students with customizable questions
+              and settings.
             </p>
             <Button onClick={() => setIsCreateExamModalOpen(true)}>
               <PlusCircle className="h-5 w-5 mr-2" />
               Create Exam
             </Button>
-            
+
             {/* Create Exam Modal */}
             {isCreateExamModalOpen && (
               <CreateExamModal
