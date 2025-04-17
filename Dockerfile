@@ -1,5 +1,5 @@
 # ===== BUILD STAGE =====
-FROM node:20-slim AS builder
+FROM node:22-slim AS builder
 
 # Install Python and build tools
 RUN apt-get update && apt-get install -y \
@@ -28,7 +28,7 @@ COPY . .
 RUN npm run build
 
 # ===== PRODUCTION STAGE =====
-FROM node:20-slim
+FROM node:22-slim
 
 WORKDIR /app
 
