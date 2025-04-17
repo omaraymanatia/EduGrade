@@ -15,7 +15,6 @@ import { z } from "zod";
 // Enums for consistent values
 export const UserRole = z.enum(["professor", "student"]);
 export const QuestionType = z.enum(["multiple_choice", "essay"]);
-export const ExamStatus = z.enum(["active", "inactive"]);
 export const AttemptStatus = z.enum(["in_progress", "completed"]);
 
 // User model
@@ -60,7 +59,7 @@ export const exams = pgTable("exams", {
   passingScore: integer("passing_score"),
   examKey: varchar("exam_key", { length: 50 }).notNull().unique(),
   creatorId: integer("creator_id").notNull(),
-  status: text("status").notNull().default("draft"),
+  isActive: boolean("is_active").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -74,7 +73,6 @@ export const examsRelations = relations(exams, ({ one, many }) => ({
 }));
 
 export const insertExamSchema = createInsertSchema(exams, {
-  status: ExamStatus,
   courseCode: z.string().regex(/^[A-Z]{2,4}\d{3,4}$/, {
     message: "Course code should be in format like COMP101 or MATH2020",
   }),
@@ -87,12 +85,11 @@ export const insertExamSchema = createInsertSchema(exams, {
   passingScore: true,
   creatorId: true,
   examKey: true,
-  status: true,
+  isActive: true,
 });
 
 export type InsertExam = z.infer<typeof insertExamSchema>;
 export type Exam = typeof exams.$inferSelect;
-export type ExamStatus = z.infer<typeof ExamStatus>;
 
 // Questions model
 export const questions = pgTable("questions", {
