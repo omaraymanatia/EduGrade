@@ -13,10 +13,10 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Enums for consistent values
-export const UserRole = z.enum(["admin", "instructor", "student"]);
+export const UserRole = z.enum(["professor", "student"]);
 export const QuestionType = z.enum(["multiple_choice", "essay"]);
-export const ExamStatus = z.enum(["draft", "active", "archived"]);
-export const AttemptStatus = z.enum(["in_progress", "completed", "abandoned"]);
+export const ExamStatus = z.enum(["active", "inactive"]);
+export const AttemptStatus = z.enum(["in_progress", "completed"]);
 
 // User model
 export const users = pgTable("users", {
