@@ -1,19 +1,43 @@
-import { pgTable, text, serial, integer, timestamp, boolean } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  serial,
+  integer,
+  timestamp,
+  boolean,
+  varchar,
+  primaryKey,
+} from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+// Enums for consistent values
+export const UserRole = z.enum(["admin", "instructor", "student"]);
+export const QuestionType = z.enum(["multiple_choice", "essay"]);
+export const ExamStatus = z.enum(["draft", "active", "archived"]);
+export const AttemptStatus = z.enum(["in_progress", "completed", "abandoned"]);
 
 // User model
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
-  email: text("email").notNull().unique(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
   password: text("password").notNull(),
   role: text("role").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
+export const usersRelations = relations(users, ({ many }) => ({
+  createdExams: many(exams),
+  attempts: many(studentExams),
+}));
+
+export const insertUserSchema = createInsertSchema(users, {
+  email: z.string().email(),
+  role: UserRole,
+}).pick({
   firstName: true,
   lastName: true,
   email: true,
@@ -23,46 +47,77 @@ export const insertUserSchema = createInsertSchema(users).pick({
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+export type UserRole = z.infer<typeof UserRole>;
 
-// Exam model
+// Exams model
 export const exams = pgTable("exams", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
-  courseCode: text("course_code").notNull(),
+  description: text("description"),
+  courseCode: varchar("course_code", { length: 20 }).notNull(),
   instructions: text("instructions"),
   duration: integer("duration").notNull(), // in minutes
   passingScore: integer("passing_score"),
-  examKey: text("exam_key").notNull().unique(),
+  examKey: varchar("exam_key", { length: 50 }).notNull().unique(),
   creatorId: integer("creator_id").notNull(),
-  isActive: boolean("is_active").default(true),
-  createdAt: timestamp("created_at").defaultNow(),
+  status: text("status").notNull().default("draft"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const insertExamSchema = createInsertSchema(exams).pick({
+export const examsRelations = relations(exams, ({ one, many }) => ({
+  creator: one(users, {
+    fields: [exams.creatorId],
+    references: [users.id],
+  }),
+  questions: many(questions),
+  attempts: many(studentExams),
+}));
+
+export const insertExamSchema = createInsertSchema(exams, {
+  status: ExamStatus,
+  courseCode: z.string().regex(/^[A-Z]{2,4}\d{3,4}$/, {
+    message: "Course code should be in format like COMP101 or MATH2020",
+  }),
+}).pick({
   title: true,
+  description: true,
   courseCode: true,
   instructions: true,
   duration: true,
   passingScore: true,
   creatorId: true,
   examKey: true,
-  isActive: true,
+  status: true,
 });
 
 export type InsertExam = z.infer<typeof insertExamSchema>;
 export type Exam = typeof exams.$inferSelect;
+export type ExamStatus = z.infer<typeof ExamStatus>;
 
 // Questions model
 export const questions = pgTable("questions", {
   id: serial("id").primaryKey(),
-  examId: integer("exam_id").notNull(),
+  examId: integer("exam_id")
+    .notNull()
+    .references(() => exams.id, { onDelete: "cascade" }),
   text: text("text").notNull(),
-  type: text("type").notNull(), // multiple_choice, short_answer, essay
+  type: text("type").notNull(),
   points: integer("points").notNull(),
   order: integer("order").notNull(),
 });
 
-export const insertQuestionSchema = createInsertSchema(questions).pick({
+export const questionsRelations = relations(questions, ({ one, many }) => ({
+  exam: one(exams, {
+    fields: [questions.examId],
+    references: [exams.id],
+  }),
+  options: many(options),
+  answers: many(studentAnswers),
+}));
+
+export const insertQuestionSchema = createInsertSchema(questions, {
+  type: QuestionType,
+}).pick({
   examId: true,
   text: true,
   type: true,
@@ -72,15 +127,25 @@ export const insertQuestionSchema = createInsertSchema(questions).pick({
 
 export type InsertQuestion = z.infer<typeof insertQuestionSchema>;
 export type Question = typeof questions.$inferSelect;
+export type QuestionType = z.infer<typeof QuestionType>;
 
 // Options model for multiple choice questions
 export const options = pgTable("options", {
   id: serial("id").primaryKey(),
-  questionId: integer("question_id").notNull(),
+  questionId: integer("question_id")
+    .notNull()
+    .references(() => questions.id, { onDelete: "cascade" }),
   text: text("text").notNull(),
-  isCorrect: boolean("is_correct").default(false),
+  isCorrect: boolean("is_correct").notNull().default(false),
   order: integer("order").notNull(),
 });
+
+export const optionsRelations = relations(options, ({ one }) => ({
+  question: one(questions, {
+    fields: [options.questionId],
+    references: [questions.id],
+  }),
+}));
 
 export const insertOptionSchema = createInsertSchema(options).pick({
   questionId: true,
@@ -95,35 +160,77 @@ export type Option = typeof options.$inferSelect;
 // Student Exams (attempts)
 export const studentExams = pgTable("student_exams", {
   id: serial("id").primaryKey(),
-  examId: integer("exam_id").notNull(),
-  studentId: integer("student_id").notNull(),
+  examId: integer("exam_id")
+    .notNull()
+    .references(() => exams.id),
+  studentId: integer("student_id")
+    .notNull()
+    .references(() => users.id),
   score: integer("score"),
-  startedAt: timestamp("started_at").defaultNow(),
-  completedAt: timestamp("completed_at"),
-  status: text("status").default("in_progress"), // in_progress, completed, abandoned
+  startedAt: timestamp("started_at").notNull().defaultNow(),
+  submittedAt: timestamp("submitted_at"),
+  status: text("status").notNull().default("in_progress"),
 });
 
-export const insertStudentExamSchema = createInsertSchema(studentExams).pick({
+export const studentExamsRelations = relations(
+  studentExams,
+  ({ one, many }) => ({
+    exam: one(exams, {
+      fields: [studentExams.examId],
+      references: [exams.id],
+    }),
+    student: one(users, {
+      fields: [studentExams.studentId],
+      references: [users.id],
+    }),
+    answers: many(studentAnswers),
+  })
+);
+
+export const insertStudentExamSchema = createInsertSchema(studentExams, {
+  status: AttemptStatus,
+}).pick({
   examId: true,
   studentId: true,
-  startedAt: true,
 });
 
 export type InsertStudentExam = z.infer<typeof insertStudentExamSchema>;
 export type StudentExam = typeof studentExams.$inferSelect;
+export type AttemptStatus = z.infer<typeof AttemptStatus>;
 
 // Student Answers
 export const studentAnswers = pgTable("student_answers", {
   id: serial("id").primaryKey(),
-  studentExamId: integer("student_exam_id").notNull(),
-  questionId: integer("question_id").notNull(),
-  answer: text("answer").notNull(),
-  selectedOptionId: integer("selected_option_id"),
+  studentExamId: integer("student_exam_id")
+    .notNull()
+    .references(() => studentExams.id, { onDelete: "cascade" }),
+  questionId: integer("question_id")
+    .notNull()
+    .references(() => questions.id),
+  answer: text("answer"),
+  selectedOptionId: integer("selected_option_id").references(() => options.id),
   isCorrect: boolean("is_correct"),
   points: integer("points"),
 });
 
-export const insertStudentAnswerSchema = createInsertSchema(studentAnswers).pick({
+export const studentAnswersRelations = relations(studentAnswers, ({ one }) => ({
+  attempt: one(studentExams, {
+    fields: [studentAnswers.studentExamId],
+    references: [studentExams.id],
+  }),
+  question: one(questions, {
+    fields: [studentAnswers.questionId],
+    references: [questions.id],
+  }),
+  selectedOption: one(options, {
+    fields: [studentAnswers.selectedOptionId],
+    references: [options.id],
+  }),
+}));
+
+export const insertStudentAnswerSchema = createInsertSchema(
+  studentAnswers
+).pick({
   studentExamId: true,
   questionId: true,
   answer: true,
