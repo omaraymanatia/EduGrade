@@ -13,19 +13,21 @@ import { useState } from "react";
 export default function ProfessorExams() {
   const [, navigate] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
-  
+
   // Fetch exams created by this professor
   const { data: exams, isLoading } = useQuery<Exam[]>({
     queryKey: ["/api/exams"],
   });
-  
+
   // Filter exams based on search query
-  const filteredExams = exams?.filter(exam => 
-    exam.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    exam.courseCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    exam.examKey.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || [];
-  
+  const filteredExams =
+    exams?.filter(
+      (exam) =>
+        exam.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        exam.courseCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        exam.examKey.toLowerCase().includes(searchQuery.toLowerCase())
+    ) || [];
+
   const columns = [
     {
       header: "Title",
@@ -41,7 +43,9 @@ export default function ProfessorExams() {
       header: "Exam Key",
       accessorKey: "examKey" as keyof Exam,
       cell: (exam: Exam) => (
-        <code className="bg-muted px-2 py-1 rounded text-sm">{exam.examKey}</code>
+        <code className="bg-muted px-2 py-1 rounded text-sm">
+          {exam.examKey}
+        </code>
       ),
     },
     {
@@ -53,7 +57,7 @@ export default function ProfessorExams() {
       header: "Status",
       accessorKey: "isActive" as keyof Exam,
       cell: (exam: Exam) => (
-        <Badge variant={exam.isActive ? "success" : "secondary"}>
+        <Badge variant={exam.isActive ? "default" : "secondary"}>
           {exam.isActive ? "Active" : "Inactive"}
         </Badge>
       ),
@@ -74,7 +78,7 @@ export default function ProfessorExams() {
       ),
     },
   ];
-  
+
   return (
     <DashboardLayout>
       <div className="container mx-auto px-6 py-8">
@@ -86,7 +90,7 @@ export default function ProfessorExams() {
             </Link>
           </Button>
         </div>
-        
+
         <div className="relative mb-4">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
           <Input
@@ -97,13 +101,13 @@ export default function ProfessorExams() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        
+
         <DataTable
           columns={columns}
           data={filteredExams}
           onRowClick={(exam) => navigate(`/professor/exams/${exam.id}`)}
         />
-        
+
         {!isLoading && exams?.length === 0 && (
           <div className="text-center py-10">
             <p className="text-muted-foreground mb-4">
