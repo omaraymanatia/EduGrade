@@ -1,0 +1,39 @@
+## First time cloning the project ##
+
+git clone https://github.com/omaraymanatia/Grad-Project.git
+cd Grad-Project
+docker build -t grad-project .
+
+###########################################################
+
+
+## Daily workflow ##
+
+git checkout main
+git pull origin main  # to get the latest changes in github repo
+
+git checkout -b feature/your-feature-name  # such as feature/llm-integration
+
+docker run -it -p 5000:5000 -v $(pwd):/app grad-project npm run dev
+
+# Edit you code and make your changes
+
+git add .
+
+git commit -m "your message"
+
+git push -u origin feature/your-feature-name  # push the changes
+
+###########################################################
+
+## If you want to use new dependencies ##
+
+# Edit requirements.txt
+
+docker build -t grad-project .
+
+
+
+
+
+
