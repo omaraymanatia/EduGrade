@@ -17,25 +17,25 @@ export default function ProfessorDashboard() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
   const [showCreateModal, setShowCreateModal] = useState(false);
-  
+
   // Fetch exams created by this professor
   const { data: exams, isLoading } = useQuery<Exam[]>({
     queryKey: ["/api/exams"],
   });
-  
+
   // Get recent exams (last 5)
   const recentExams = exams?.slice(0, 5) || [];
-  
+
   // Calculate stats
   const totalExams = exams?.length || 0;
-  const activeExams = exams?.filter(exam => exam.isActive).length || 0;
+  const activeExams = exams?.filter((exam) => exam.isActive).length || 0;
   const recentExamsCount = recentExams.length;
-  
+
   return (
     <DashboardLayout>
       <div className="container mx-auto px-6 py-8">
         <h3 className="text-gray-700 text-2xl font-medium">Dashboard</h3>
-        
+
         {/* Stats Cards */}
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <Card>
@@ -45,17 +45,21 @@ export default function ProfessorDashboard() {
                   <FileText className="h-6 w-6" />
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Total Exams</p>
+                  <p className="text-sm font-medium text-gray-500">
+                    Total Exams
+                  </p>
                   {isLoading ? (
                     <Skeleton className="h-8 w-16" />
                   ) : (
-                    <p className="text-2xl font-semibold text-gray-700">{totalExams}</p>
+                    <p className="text-2xl font-semibold text-gray-700">
+                      {totalExams}
+                    </p>
                   )}
                 </div>
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
@@ -63,17 +67,21 @@ export default function ProfessorDashboard() {
                   <UserCheck className="h-6 w-6" />
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Active Exams</p>
+                  <p className="text-sm font-medium text-gray-500">
+                    Active Exams
+                  </p>
                   {isLoading ? (
                     <Skeleton className="h-8 w-16" />
                   ) : (
-                    <p className="text-2xl font-semibold text-gray-700">{activeExams}</p>
+                    <p className="text-2xl font-semibold text-gray-700">
+                      {activeExams}
+                    </p>
                   )}
                 </div>
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
@@ -81,18 +89,22 @@ export default function ProfessorDashboard() {
                   <Calendar className="h-6 w-6" />
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Recent Exams</p>
+                  <p className="text-sm font-medium text-gray-500">
+                    Recent Exams
+                  </p>
                   {isLoading ? (
                     <Skeleton className="h-8 w-16" />
                   ) : (
-                    <p className="text-2xl font-semibold text-gray-700">{recentExamsCount}</p>
+                    <p className="text-2xl font-semibold text-gray-700">
+                      {recentExamsCount}
+                    </p>
                   )}
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
-        
+
         {/* Recent Exams with Create Button */}
         <div className="mt-8 flex justify-between items-center">
           <h4 className="text-gray-700 text-xl font-medium">Recent Exams</h4>
@@ -100,13 +112,13 @@ export default function ProfessorDashboard() {
             <Plus className="mr-2 h-4 w-4" /> Create New Exam
           </Button>
         </div>
-        
+
         {/* Create Exam Modal */}
-        <CreateExamModal 
+        <CreateExamModal
           isOpen={showCreateModal}
           onClose={() => setShowCreateModal(false)}
         />
-        
+
         <div className="mt-4">
           {isLoading ? (
             <div className="space-y-3">
@@ -126,20 +138,24 @@ export default function ProfessorDashboard() {
           ) : recentExams.length > 0 ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {recentExams.map((exam) => (
-                <Card 
-                  key={exam.id} 
+                <Card
+                  key={exam.id}
                   className="border-l-4 border-primary-600 cursor-pointer hover:shadow-md transition-shadow"
                   onClick={() => navigate(`/professor/exams/${exam.id}`)}
                 >
                   <CardContent className="p-6">
                     <div className="flex justify-between items-start">
                       <div>
-                        <h5 className="text-lg font-medium text-gray-800">{exam.title}</h5>
+                        <h5 className="text-lg font-medium text-gray-800">
+                          {exam.title}
+                        </h5>
                         <p className="text-sm text-gray-600 mt-1">
                           Created on: {formatDate(exam.createdAt)}
                         </p>
                         <div className="mt-4 flex gap-2">
-                          <Badge variant={exam.isActive ? "success" : "secondary"}>
+                          <Badge
+                            variant={exam.isActive ? "default" : "secondary"}
+                          >
                             {exam.isActive ? "Active" : "Inactive"}
                           </Badge>
                           <Badge variant="outline">{exam.courseCode}</Badge>
@@ -162,13 +178,14 @@ export default function ProfessorDashboard() {
             <Card>
               <CardContent className="p-6 text-center py-10">
                 <p className="text-muted-foreground">
-                  You haven't created any exams yet. Click on "Create New Exam" to get started.
+                  You haven't created any exams yet. Click on "Create New Exam"
+                  to get started.
                 </p>
               </CardContent>
             </Card>
           )}
         </div>
-        
+
         {totalExams > 5 && (
           <div className="mt-4 text-center">
             <Button variant="link" asChild>
