@@ -13,21 +13,26 @@ import { Card, CardContent } from "@/components/ui/card";
 
 export default function StudentExams() {
   const [searchQuery, setSearchQuery] = useState("");
-  
+
   // Fetch exams taken by this student
   const { data: studentExams, isLoading } = useQuery<StudentExam[]>({
     queryKey: ["/api/exams"],
   });
-  
+
   // Filter exams based on search query (basic implementation)
-  const filteredExams = studentExams?.filter(exam => 
-    // Since we don't have the actual exam title in the student exam object,
-    // we're just filtering by ID and date for demonstration
-    exam.id.toString().includes(searchQuery.toLowerCase()) ||
-    exam.examId.toString().includes(searchQuery.toLowerCase()) ||
-    (exam.startedAt && formatDate(exam.startedAt).toLowerCase().includes(searchQuery.toLowerCase()))
-  ) || [];
-  
+  const filteredExams =
+    studentExams?.filter(
+      (exam) =>
+        // Since we don't have the actual exam title in the student exam object,
+        // we're just filtering by ID and date for demonstration
+        exam.id.toString().includes(searchQuery.toLowerCase()) ||
+        exam.examId.toString().includes(searchQuery.toLowerCase()) ||
+        (exam.startedAt &&
+          formatDate(exam.startedAt)
+            .toLowerCase()
+            .includes(searchQuery.toLowerCase()))
+    ) || [];
+
   const columns = [
     {
       header: "Exam",
@@ -44,12 +49,14 @@ export default function StudentExams() {
     {
       header: "Completed At",
       accessorKey: "completedAt" as keyof StudentExam,
-      cell: (exam: StudentExam) => exam.completedAt ? formatDate(exam.completedAt) : "-",
+      cell: (exam: StudentExam) =>
+        exam.submittedAt ? formatDate(exam.submittedAt) : "-",
     },
     {
       header: "Score",
       accessorKey: "score" as keyof StudentExam,
-      cell: (exam: StudentExam) => exam.score !== null ? `${exam.score}%` : "-",
+      cell: (exam: StudentExam) =>
+        exam.score !== null ? `${exam.score}%` : "-",
     },
     {
       header: "Status",
@@ -57,7 +64,11 @@ export default function StudentExams() {
       cell: (exam: StudentExam) => {
         if (exam.status === "completed") {
           return (
-            <Badge variant={exam.score && exam.score >= 70 ? "success" : "destructive"}>
+            <Badge
+              variant={
+                exam.score && exam.score >= 70 ? "default" : "destructive"
+              }
+            >
               {exam.score && exam.score >= 70 ? "Passed" : "Failed"}
             </Badge>
           );
@@ -70,10 +81,7 @@ export default function StudentExams() {
       header: "Actions",
       accessorKey: "id" as keyof StudentExam,
       cell: (exam: StudentExam) => (
-        <Button
-          variant="link"
-          asChild
-        >
+        <Button variant="link" asChild>
           <Link href={`/student/exams/${exam.examId}`}>
             {exam.status === "in_progress" ? "Continue" : "View"}
           </Link>
@@ -81,12 +89,12 @@ export default function StudentExams() {
       ),
     },
   ];
-  
+
   return (
     <DashboardLayout>
       <div className="container mx-auto px-6 py-8">
         <h3 className="text-gray-700 text-2xl font-medium mb-6">My Exams</h3>
-        
+
         <div className="relative mb-4">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
           <Input
@@ -97,7 +105,7 @@ export default function StudentExams() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        
+
         {isLoading ? (
           <div className="flex justify-center py-8">
             <p>Loading exams...</p>
@@ -115,7 +123,8 @@ export default function StudentExams() {
                 You haven't taken any exams yet.
               </p>
               <p className="text-muted-foreground">
-                To start an exam, enter the exam ID provided by your professor on the dashboard.
+                To start an exam, enter the exam ID provided by your professor
+                on the dashboard.
               </p>
             </CardContent>
           </Card>
