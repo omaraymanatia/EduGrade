@@ -73,8 +73,8 @@ export const examsRelations = relations(exams, ({ one, many }) => ({
 }));
 
 export const insertExamSchema = createInsertSchema(exams, {
-  courseCode: z.string().regex(/^[A-Z]{2,4}\d{3,4}$/, {
-    message: "Course code should be in format like COMP101 or MATH2020",
+  courseCode: z.string().regex(/^[A-Za-z]{2,4}-\d{3,4}$/, {
+    message: "Course code should be in format like CS-101 or MATH-202",
   }),
 }).pick({
   title: true,
