@@ -35,32 +35,57 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 
 export default function StudentTakeExam() {
   const { id } = useParams();
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const examId = parseInt(id);
-  
+  const examId = parseInt(id || "0");
+
   // Track various states
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
-  const [answers, setAnswers] = useState<{ [key: number]: { answer: string; selectedOptionId?: number } }>({});
+  const [answers, setAnswers] = useState<{
+    [key: number]: { answer: string; selectedOptionId?: number };
+  }>({});
   const [studentExamId, setStudentExamId] = useState<number | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
-  const [showConfirmSubmitDialog, setShowConfirmSubmitDialog] = useState<boolean>(false);
+  const [showConfirmSubmitDialog, setShowConfirmSubmitDialog] =
+    useState<boolean>(false);
   const [isExamComplete, setIsExamComplete] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  
+
+  // Define the type for exam details
+  interface ExamDetails {
+    duration: number;
+    title: string;
+    courseCode: string;
+    instructions?: string;
+    passingScore: number;
+    questions: {
+      id: number;
+      text: string;
+      type: "multiple_choice" | "short_answer" | "essay";
+      points: number;
+      options?: { id: number; text: string }[];
+    }[];
+    studentExam?: {
+      score: number;
+    };
+  }
+
   // Fetch exam details
-  const { data: examDetails, isLoading: isLoadingExam } = useQuery({
-    queryKey: [`/api/exams/${examId}`],
-    enabled: !isNaN(examId),
-  });
-  
+  const { data: examDetails, isLoading: isLoadingExam } = useQuery<ExamDetails>(
+    {
+      queryKey: [`/api/exams/${examId}`],
+      enabled: !isNaN(examId),
+    }
+  );
+
   // Timer interval for countdown
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
-    
+
     if (timeRemaining !== null && timeRemaining > 0 && !isExamComplete) {
       intervalId = setInterval(() => {
         setTimeRemaining((prev) => {
@@ -75,12 +100,12 @@ export default function StudentTakeExam() {
         });
       }, 1000);
     }
-    
+
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
   }, [timeRemaining, isExamComplete]);
-  
+
   // Initialize the exam state when data is loaded
   useEffect(() => {
     if (examDetails && examDetails.duration) {
@@ -88,7 +113,7 @@ export default function StudentTakeExam() {
       setTimeRemaining(examDetails.duration * 60);
     }
   }, [examDetails]);
-  
+
   // Start the exam - create a student exam record
   const startExamMutation = useMutation({
     mutationFn: async () => {
@@ -107,30 +132,30 @@ export default function StudentTakeExam() {
       navigate("/student/exams");
     },
   });
-  
+
   // Start the exam when data is loaded
   useEffect(() => {
     if (examDetails && !studentExamId) {
       startExamMutation.mutate();
     }
   }, [examDetails]);
-  
+
   // Submit a single answer
   const submitAnswerMutation = useMutation({
-    mutationFn: async (data: { 
-      questionId: number; 
-      answer: string; 
-      selectedOptionId?: number 
+    mutationFn: async (data: {
+      questionId: number;
+      answer: string;
+      selectedOptionId?: number;
     }) => {
       if (!studentExamId) return;
-      
+
       const payload = {
         studentExamId,
         questionId: data.questionId,
         answer: data.answer,
-        selectedOptionId: data.selectedOptionId
+        selectedOptionId: data.selectedOptionId,
       };
-      
+
       const res = await apiRequest("POST", "/api/submit-answer", payload);
       return await res.json();
     },
@@ -142,20 +167,22 @@ export default function StudentTakeExam() {
       });
     },
   });
-  
+
   // Complete the exam - submit all answers
   const completeExamMutation = useMutation({
     mutationFn: async () => {
       if (!studentExamId) return;
-      
-      const res = await apiRequest("POST", "/api/complete-exam", { studentExamId });
+
+      const res = await apiRequest("POST", "/api/complete-exam", {
+        studentExamId,
+      });
       return await res.json();
     },
     onSuccess: (data) => {
       setIsExamComplete(true);
       setIsSubmitting(false);
       queryClient.invalidateQueries({ queryKey: ["/api/exams"] });
-      
+
       toast({
         title: "Exam completed",
         description: `Your score: ${data.score}%`,
@@ -170,7 +197,7 @@ export default function StudentTakeExam() {
       });
     },
   });
-  
+
   // Handle answer change for the current question
   const handleAnswerChange = (value: string, questionId: number) => {
     setAnswers((prev) => ({
@@ -181,7 +208,7 @@ export default function StudentTakeExam() {
       },
     }));
   };
-  
+
   // Handle option selection for multiple choice
   const handleOptionSelect = (optionId: number, questionId: number) => {
     setAnswers((prev) => ({
@@ -189,20 +216,24 @@ export default function StudentTakeExam() {
       [questionId]: {
         ...prev[questionId],
         selectedOptionId: optionId,
-        answer: examDetails.questions.find(q => q.id === questionId)
-          ?.options?.find(o => o.id === optionId)?.text || "",
+        answer:
+          examDetails?.questions
+            .find((q) => q.id === questionId)
+            ?.options?.find((o) => o.id === optionId)?.text || "",
       },
     }));
-    
+
     // Submit the answer immediately for multiple choice
     submitAnswerMutation.mutate({
       questionId,
-      answer: examDetails.questions.find(q => q.id === questionId)
-        ?.options?.find(o => o.id === optionId)?.text || "",
+      answer:
+        examDetails?.questions
+          .find((q) => q.id === questionId)
+          ?.options?.find((o) => o.id === optionId)?.text || "",
       selectedOptionId: optionId,
     });
   };
-  
+
   // Auto-save the current answer when navigating between questions
   const saveCurrentAnswer = () => {
     const currentQuestion = examDetails?.questions?.[currentQuestionIndex];
@@ -214,15 +245,18 @@ export default function StudentTakeExam() {
       });
     }
   };
-  
+
   // Navigate to the next question
   const goToNextQuestion = () => {
     saveCurrentAnswer();
-    if (examDetails?.questions && currentQuestionIndex < examDetails.questions.length - 1) {
+    if (
+      examDetails?.questions &&
+      currentQuestionIndex < examDetails.questions.length - 1
+    ) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
     }
   };
-  
+
   // Navigate to the previous question
   const goToPrevQuestion = () => {
     saveCurrentAnswer();
@@ -230,27 +264,27 @@ export default function StudentTakeExam() {
       setCurrentQuestionIndex(currentQuestionIndex - 1);
     }
   };
-  
+
   // Jump to a specific question
   const jumpToQuestion = (index: number) => {
     saveCurrentAnswer();
     setCurrentQuestionIndex(index);
   };
-  
+
   // Submit the entire exam
   const submitExam = () => {
     setIsSubmitting(true);
     saveCurrentAnswer();
     completeExamMutation.mutate();
   };
-  
+
   // Calculate progress
   const calculateProgress = () => {
     if (!examDetails?.questions) return 0;
     const answeredQuestions = Object.keys(answers).length;
     return Math.round((answeredQuestions / examDetails.questions.length) * 100);
   };
-  
+
   // Display when loading
   if (isLoadingExam || !examDetails) {
     return (
@@ -263,10 +297,10 @@ export default function StudentTakeExam() {
       </DashboardLayout>
     );
   }
-  
+
   // Get the current question
   const currentQuestion = examDetails.questions[currentQuestionIndex];
-  
+
   // Handle completed exam view
   if (isExamComplete) {
     return (
@@ -284,20 +318,28 @@ export default function StudentTakeExam() {
               <div className="flex justify-center gap-8 mb-8">
                 <div>
                   <p className="text-sm text-gray-500">Your Score</p>
-                  <p className="text-3xl font-bold">{examDetails.studentExam?.score}%</p>
+                  <p className="text-3xl font-bold">
+                    {examDetails.studentExam?.score}%
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Status</p>
-                  <Badge 
-                    variant={examDetails.studentExam?.score >= examDetails.passingScore ? "success" : "destructive"}
+                  <Badge
+                    variant={
+                      (examDetails.studentExam?.score ?? 0) >=
+                      examDetails.passingScore
+                        ? "default"
+                        : "destructive"
+                    }
                   >
-                    {examDetails.studentExam?.score >= examDetails.passingScore ? "Passed" : "Failed"}
+                    {(examDetails.studentExam?.score ?? 0) >=
+                    examDetails.passingScore
+                      ? "Passed"
+                      : "Failed"}
                   </Badge>
                 </div>
               </div>
-              <Button
-                onClick={() => navigate("/student/exams")}
-              >
+              <Button onClick={() => navigate("/student/exams")}>
                 Back to My Exams
               </Button>
             </CardContent>
@@ -306,7 +348,7 @@ export default function StudentTakeExam() {
       </DashboardLayout>
     );
   }
-  
+
   return (
     <DashboardLayout>
       <div className="container mx-auto px-6 py-8">
@@ -327,31 +369,40 @@ export default function StudentTakeExam() {
                 <div className="flex items-center">
                   <Clock className="h-4 w-4 mr-1 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">
-                    {timeRemaining !== null ? formatTime(timeRemaining) : "Loading..."}
+                    {timeRemaining !== null
+                      ? formatTime(timeRemaining)
+                      : "Loading..."}
                   </span>
                 </div>
               </div>
             </div>
           </CardHeader>
-          
+
           <CardContent>
             {/* Progress indicator */}
             <div className="mb-6">
               <div className="flex justify-between mb-2">
                 <span className="text-sm text-muted-foreground">Progress</span>
                 <span className="text-sm text-muted-foreground">
-                  {Object.keys(answers).length} of {examDetails.questions.length} questions answered
+                  {Object.keys(answers).length} of{" "}
+                  {examDetails.questions.length} questions answered
                 </span>
               </div>
               <Progress value={calculateProgress()} />
             </div>
-            
+
             {/* Question navigation */}
             <div className="flex flex-wrap gap-2 mb-6">
               {examDetails.questions.map((q, index) => (
                 <Button
                   key={q.id}
-                  variant={index === currentQuestionIndex ? "default" : answers[q.id] ? "outline" : "secondary"}
+                  variant={
+                    index === currentQuestionIndex
+                      ? "default"
+                      : answers[q.id]
+                      ? "outline"
+                      : "secondary"
+                  }
                   size="sm"
                   onClick={() => jumpToQuestion(index)}
                 >
@@ -359,7 +410,7 @@ export default function StudentTakeExam() {
                 </Button>
               ))}
             </div>
-            
+
             {/* Instructions */}
             {examDetails.instructions && currentQuestionIndex === 0 && (
               <div className="bg-yellow-50 p-4 rounded-md border border-yellow-200 mb-6">
@@ -367,58 +418,81 @@ export default function StudentTakeExam() {
                 <p>{examDetails.instructions}</p>
               </div>
             )}
-            
+
             {/* Current Question */}
             <div className="border rounded-md p-6 mb-6">
               <div className="flex justify-between mb-4">
-                <h3 className="text-lg font-medium">Question {currentQuestionIndex + 1}</h3>
+                <h3 className="text-lg font-medium">
+                  Question {currentQuestionIndex + 1}
+                </h3>
                 <div className="text-sm bg-gray-100 px-2 py-1 rounded">
-                  {currentQuestion.points} {currentQuestion.points === 1 ? "point" : "points"}
+                  {currentQuestion.points}{" "}
+                  {currentQuestion.points === 1 ? "point" : "points"}
                 </div>
               </div>
-              
+
               <p className="mb-6">{currentQuestion.text}</p>
-              
+
               {/* Multiple Choice */}
-              {currentQuestion.type === "multiple_choice" && currentQuestion.options && (
-                <RadioGroup
-                  value={answers[currentQuestion.id]?.selectedOptionId?.toString() || ""}
-                  onValueChange={(value) => handleOptionSelect(parseInt(value), currentQuestion.id)}
-                  className="space-y-3"
-                >
-                  {currentQuestion.options.map((option) => (
-                    <div key={option.id} className="flex items-center space-x-2 p-2 border rounded-md">
-                      <RadioGroupItem id={`option-${option.id}`} value={option.id.toString()} />
-                      <Label htmlFor={`option-${option.id}`} className="flex-1 cursor-pointer">
-                        {option.text}
-                      </Label>
-                    </div>
-                  ))}
-                </RadioGroup>
-              )}
-              
+              {currentQuestion.type === "multiple_choice" &&
+                currentQuestion.options && (
+                  <RadioGroup
+                    value={
+                      answers[
+                        currentQuestion.id
+                      ]?.selectedOptionId?.toString() || ""
+                    }
+                    onValueChange={(value) =>
+                      handleOptionSelect(parseInt(value), currentQuestion.id)
+                    }
+                    className="space-y-3"
+                  >
+                    {currentQuestion.options.map((option) => (
+                      <div
+                        key={option.id}
+                        className="flex items-center space-x-2 p-2 border rounded-md"
+                      >
+                        <RadioGroupItem
+                          id={`option-${option.id}`}
+                          value={option.id.toString()}
+                        />
+                        <Label
+                          htmlFor={`option-${option.id}`}
+                          className="flex-1 cursor-pointer"
+                        >
+                          {option.text}
+                        </Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                )}
+
               {/* Short Answer */}
               {currentQuestion.type === "short_answer" && (
                 <Textarea
                   placeholder="Enter your answer here..."
                   rows={3}
                   value={answers[currentQuestion.id]?.answer || ""}
-                  onChange={(e) => handleAnswerChange(e.target.value, currentQuestion.id)}
+                  onChange={(e) =>
+                    handleAnswerChange(e.target.value, currentQuestion.id)
+                  }
                 />
               )}
-              
+
               {/* Essay */}
               {currentQuestion.type === "essay" && (
                 <Textarea
                   placeholder="Enter your essay answer here..."
                   rows={8}
                   value={answers[currentQuestion.id]?.answer || ""}
-                  onChange={(e) => handleAnswerChange(e.target.value, currentQuestion.id)}
+                  onChange={(e) =>
+                    handleAnswerChange(e.target.value, currentQuestion.id)
+                  }
                 />
               )}
             </div>
           </CardContent>
-          
+
           <CardFooter className="flex justify-between">
             <Button
               variant="outline"
@@ -427,7 +501,7 @@ export default function StudentTakeExam() {
             >
               <ArrowLeft className="mr-2 h-4 w-4" /> Previous
             </Button>
-            
+
             <div>
               {currentQuestionIndex === examDetails.questions.length - 1 ? (
                 <Button
@@ -445,41 +519,43 @@ export default function StudentTakeExam() {
           </CardFooter>
         </Card>
       </div>
-      
+
       {/* Confirm Submit Dialog */}
-      <Dialog open={showConfirmSubmitDialog} onOpenChange={setShowConfirmSubmitDialog}>
+      <Dialog
+        open={showConfirmSubmitDialog}
+        onOpenChange={setShowConfirmSubmitDialog}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Submit Exam</DialogTitle>
             <DialogDescription>
-              Are you sure you want to submit your exam? You won't be able to change your answers after submission.
+              Are you sure you want to submit your exam? You won't be able to
+              change your answers after submission.
             </DialogDescription>
           </DialogHeader>
-          
+
           {Object.keys(answers).length < examDetails.questions.length && (
             <div className="flex items-start p-3 bg-amber-50 border border-amber-200 rounded-md">
               <AlertTriangle className="h-5 w-5 text-amber-500 mr-2 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="font-medium text-amber-800">Warning</p>
                 <p className="text-sm text-amber-700">
-                  You have only answered {Object.keys(answers).length} out of {examDetails.questions.length} questions.
+                  You have only answered {Object.keys(answers).length} out of{" "}
+                  {examDetails.questions.length} questions.
                 </p>
               </div>
             </div>
           )}
-          
+
           <DialogFooter>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setShowConfirmSubmitDialog(false)}
               disabled={isSubmitting}
             >
               Cancel
             </Button>
-            <Button 
-              onClick={submitExam}
-              disabled={isSubmitting}
-            >
+            <Button onClick={submitExam} disabled={isSubmitting}>
               {isSubmitting ? "Submitting..." : "Submit Exam"}
             </Button>
           </DialogFooter>
