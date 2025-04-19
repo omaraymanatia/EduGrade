@@ -164,6 +164,7 @@ export const studentExams = pgTable("student_exams", {
     .notNull()
     .references(() => users.id),
   score: integer("score"),
+  AI_detected: integer("AI detected"),
   startedAt: timestamp("started_at").notNull().defaultNow(),
   submittedAt: timestamp("submitted_at"),
   status: text("status").notNull().default("in_progress"),
