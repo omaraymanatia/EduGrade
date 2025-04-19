@@ -1,0 +1,7 @@
+# Fix rendering error in the frontend
+
+# Improve the UI of the app
+
+# Migrate data into an online database (neon for instance)
+
+# Handle photos upload to store photos in uploads folder
