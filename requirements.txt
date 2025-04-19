@@ -1,6 +1,5 @@
 scikit-learn==1.4.0
 tensorflow==2.10.0
-transformers==4.38.2
 nltk==3.8.1
 spacy==3.7.2
 torch==2.1.2
@@ -19,3 +18,8 @@ seaborn==0.13.2
 tqdm==4.67.1 
 transformers==4.51.3 
 torch
+
+fastapi==0.100.0
+uvicorn==0.22.0
+pydantic>=1.8.0
+python-multipart==0.0.6
