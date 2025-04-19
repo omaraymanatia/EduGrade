@@ -6,7 +6,7 @@ def test_api():
     MAX_RETRIES = 100 # Maximum number of retries for connection errors
     RETRY_DELAY = 2 # Delay in seconds between retries
 
-    text = "Taking pictures of objects in our own solar system is much more difficult than taking pictures of distant galaxies. This is because the objects in our solar system are much closer to us, so they appear smaller in the sky and are harder to see clearly. In addition, planets like Venus are covered in clouds, which makes it difficult to get a clear view of the surface.\n\nTo take a picture of Venus or any other planet, we need to use special telescopes that are designed to capture light from distant objects. These telescopes are usually much larger and more powerful than the ones we use to look at stars and galaxies, because they need to be able to see much finer details on the surface of the planet. Even with these powerful telescopes, it can still be difficult to get a clear view of the surface of a planet like Venus, because the clouds and other atmospheric conditions can block our view.\n\nSo, while it may be possible to get some close-up shots of Venus or other planets in our solar system, it is much more difficult than taking pictures of distant galaxies, which are much further away and easier to see clearly."
+    text = " I love the new iPhone 15 Pro Max. It is the best phone I have ever used. The camera is amazing, and the battery life is incredible. I highly recommend it to anyone looking for a new phone."
     
     for attempt in range(MAX_RETRIES):
         try:
