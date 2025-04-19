@@ -1,4 +1,0 @@
-# Fix the error in frontend => the error may be comming from these file:
-
-client/src/components/layout/sidebar.tsx
-client/src/hooks/use-auth.tsx
