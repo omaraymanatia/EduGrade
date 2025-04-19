@@ -50,54 +50,42 @@ async def root():
 async def detect_content(request: TextRequest):
     try:
         # Constants
-        THRESHOLD = 0.60
-        MIN_DIFFERENCE = 0.10
+        AI_THRESHOLD = 50.0  # threshold for AI classification
 
         # Tokenize and get model output
         inputs = tokenizer([request.text], padding=True, truncation=True, return_tensors="pt")
         
         with torch.no_grad():
             outputs = model(**inputs)
-            probabilities = torch.sigmoid(outputs.logits).numpy()
+            logits = outputs.logits.numpy()
+            probabilities = np.exp(logits) / np.sum(np.exp(logits), axis=1, keepdims=True)
 
         human_prob, ai_prob = probabilities[0]
-        prob_difference = abs(human_prob - ai_prob)
+        human_percentage = human_prob * 100
+        ai_percentage = ai_prob * 100
+        
+        # Calculate percentage difference and determine confidence
+        percentage_diff = abs(ai_percentage - human_percentage)
+        
+        if percentage_diff <= 40:
+            confidence = "Low"
+        elif percentage_diff <= 70:
+            confidence = "Medium"
+        else:
+            confidence = "High"
 
         # Classification logic
-        if prob_difference >= MIN_DIFFERENCE:
-            if ai_prob > human_prob and ai_prob > THRESHOLD:
-                label = "AI"
-                confidence = "High"
-            elif human_prob > ai_prob and human_prob > THRESHOLD:
-                label = "Human"
-                confidence = "High"
-            else:
-                label = "AI" if ai_prob > human_prob else "Human"
-                confidence = "Medium"
-        else:
-            if max(ai_prob, human_prob) > THRESHOLD:
-                label = "AI" if ai_prob > human_prob else "Human"
-                confidence = "Low"
-            else:
-                label = "Uncertain"
-                confidence = "Very Low"
+        label = "AI" if ai_percentage >= AI_THRESHOLD else "Human"
 
-        confidence_score = (prob_difference / max(ai_prob, human_prob)) * 100
-
-        if confidence in ['Low', 'Very Low']:
-            if label == 'AI':
-                label = 'Human'
-                confidence = 'Medium'
-            else:
-                label = 'AI'
-                confidence = 'Medium'
+        if confidence == "Low":
+            label = "Uncertain but it is likely to be" + " " + label
 
         return DetectionResponse(
             classification=label,
             confidence=confidence,
-            confidence_score=float(confidence_score),
-            ai_probability=float(ai_prob * 100),
-            human_probability=float(human_prob * 100)
+            confidence_score=float(percentage_diff),  # Use actual difference as score
+            ai_probability=float(ai_percentage),
+            human_probability=float(human_percentage)
         )
     except Exception as e:
         logger.error(f"Error processing request: {str(e)}")
