@@ -39,7 +39,6 @@ export const usersRelations = relations(users, ({ many }) => ({
 export const exams = pgTable("exams", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
-  description: text("description"),
   courseCode: varchar("course_code", { length: 20 }).notNull(),
   instructions: text("instructions"),
   duration: integer("duration").notNull(), // in minutes
@@ -292,6 +291,7 @@ export type SelectUser = typeof users.$inferSelect;
 
 export type InsertExam = z.infer<typeof insertExamSchema>;
 export type Exam = typeof exams.$inferSelect;
+
 export type SelectExam = typeof exams.$inferSelect;
 
 export type InsertStudentAnswer = z.infer<typeof insertStudentAnswerSchema>;
