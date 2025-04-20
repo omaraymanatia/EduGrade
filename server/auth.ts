@@ -8,6 +8,7 @@ import { storage } from "./storage";
 import { insertUserSchema, User as SelectUser } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
+import { db } from "./db/client";
 
 declare global {
   namespace Express {

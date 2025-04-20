@@ -1,9 +1,18 @@
 import express, { type Request, Response, NextFunction } from "express";
+import cors from "cors";
+
 import { config } from "./config.ts";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
+app.use(
+  cors({
+    origin: config.FRONTEND_URL,
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 

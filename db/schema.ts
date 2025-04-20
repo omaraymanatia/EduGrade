@@ -9,13 +9,15 @@ import {
   primaryKey,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import { createInsertSchema } from "drizzle-zod";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Enums for consistent values
 export const UserRole = z.enum(["professor", "student"]);
 export const QuestionType = z.enum(["multiple_choice", "essay"]);
 export const AttemptStatus = z.enum(["in_progress", "completed"]);
+
+// ************************************Models************************************
 
 // User model
 export const users = pgTable("users", {
@@ -32,21 +34,6 @@ export const usersRelations = relations(users, ({ many }) => ({
   createdExams: many(exams),
   attempts: many(studentExams),
 }));
-
-export const insertUserSchema = createInsertSchema(users, {
-  email: z.string().email(),
-  role: UserRole,
-}).pick({
-  firstName: true,
-  lastName: true,
-  email: true,
-  password: true,
-  role: true,
-});
-
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
-export type UserRole = z.infer<typeof UserRole>;
 
 // Exams model
 export const exams = pgTable("exams", {
@@ -72,25 +59,6 @@ export const examsRelations = relations(exams, ({ one, many }) => ({
   attempts: many(studentExams),
 }));
 
-export const insertExamSchema = createInsertSchema(exams, {
-  courseCode: z.string().regex(/^[A-Za-z]{2,4}-\d{3,4}$/, {
-    message: "Course code should be in format like CS-101 or MATH-202",
-  }),
-}).pick({
-  title: true,
-  description: true,
-  courseCode: true,
-  instructions: true,
-  duration: true,
-  passingScore: true,
-  creatorId: true,
-  examKey: true,
-  isActive: true,
-});
-
-export type InsertExam = z.infer<typeof insertExamSchema>;
-export type Exam = typeof exams.$inferSelect;
-
 // Questions model
 export const questions = pgTable("questions", {
   id: serial("id").primaryKey(),
@@ -112,20 +80,6 @@ export const questionsRelations = relations(questions, ({ one, many }) => ({
   answers: many(studentAnswers),
 }));
 
-export const insertQuestionSchema = createInsertSchema(questions, {
-  type: QuestionType,
-}).pick({
-  examId: true,
-  text: true,
-  type: true,
-  points: true,
-  order: true,
-});
-
-export type InsertQuestion = z.infer<typeof insertQuestionSchema>;
-export type Question = typeof questions.$inferSelect;
-export type QuestionType = z.infer<typeof QuestionType>;
-
 // Options model for multiple choice questions
 export const options = pgTable("options", {
   id: serial("id").primaryKey(),
@@ -143,16 +97,6 @@ export const optionsRelations = relations(options, ({ one }) => ({
     references: [questions.id],
   }),
 }));
-
-export const insertOptionSchema = createInsertSchema(options).pick({
-  questionId: true,
-  text: true,
-  isCorrect: true,
-  order: true,
-});
-
-export type InsertOption = z.infer<typeof insertOptionSchema>;
-export type Option = typeof options.$inferSelect;
 
 // Student Exams (attempts)
 export const studentExams = pgTable("student_exams", {
@@ -185,17 +129,6 @@ export const studentExamsRelations = relations(
   })
 );
 
-export const insertStudentExamSchema = createInsertSchema(studentExams, {
-  status: AttemptStatus,
-}).pick({
-  examId: true,
-  studentId: true,
-});
-
-export type InsertStudentExam = z.infer<typeof insertStudentExamSchema>;
-export type StudentExam = typeof studentExams.$inferSelect;
-export type AttemptStatus = z.infer<typeof AttemptStatus>;
-
 // Student Answers
 export const studentAnswers = pgTable("student_answers", {
   id: serial("id").primaryKey(),
@@ -226,6 +159,59 @@ export const studentAnswersRelations = relations(studentAnswers, ({ one }) => ({
   }),
 }));
 
+// ************************************Schemas************************************
+
+export const insertUserSchema = createInsertSchema(users, {
+  email: z.string().email(),
+  role: UserRole,
+}).pick({
+  firstName: true,
+  lastName: true,
+  email: true,
+  password: true,
+  role: true,
+});
+
+export const insertExamSchema = createInsertSchema(exams, {
+  courseCode: z.string().regex(/^[A-Za-z]{2,4}-\d{3,4}$/, {
+    message: "Course code should be in format like CS-101 or MATH-202",
+  }),
+}).pick({
+  title: true,
+  description: true,
+  courseCode: true,
+  instructions: true,
+  duration: true,
+  passingScore: true,
+  creatorId: true,
+  examKey: true,
+  isActive: true,
+});
+
+export const insertQuestionSchema = createInsertSchema(questions, {
+  type: QuestionType,
+}).pick({
+  examId: true,
+  text: true,
+  type: true,
+  points: true,
+  order: true,
+});
+
+export const insertOptionSchema = createInsertSchema(options).pick({
+  questionId: true,
+  text: true,
+  isCorrect: true,
+  order: true,
+});
+
+export const insertStudentExamSchema = createInsertSchema(studentExams, {
+  status: AttemptStatus,
+}).pick({
+  examId: true,
+  studentId: true,
+});
+
 export const insertStudentAnswerSchema = createInsertSchema(
   studentAnswers
 ).pick({
@@ -235,5 +221,87 @@ export const insertStudentAnswerSchema = createInsertSchema(
   selectedOptionId: true,
 });
 
+// *************************************Select Schemas************************************
+
+export const createUserSchema = createSelectSchema(users, {
+  email: z.string().email(),
+  role: UserRole,
+}).pick({
+  firstName: true,
+  lastName: true,
+  email: true,
+  password: true,
+  role: true,
+});
+
+export const createExamSchema = createSelectSchema(exams, {
+  courseCode: z.string().regex(/^[A-Za-z]{2,4}-\d{3,4}$/, {
+    message: "Course code should be in format like CS-101 or MATH-202",
+  }),
+}).pick({
+  title: true,
+  description: true,
+  courseCode: true,
+  instructions: true,
+  duration: true,
+  passingScore: true,
+  creatorId: true,
+  examKey: true,
+  isActive: true,
+});
+
+export const createQuestionSchema = createSelectSchema(questions, {
+  type: QuestionType,
+}).pick({
+  examId: true,
+  text: true,
+  type: true,
+  points: true,
+  order: true,
+});
+
+export const createOptionSchema = createSelectSchema(options).pick({
+  questionId: true,
+  text: true,
+  isCorrect: true,
+  order: true,
+});
+
+export const createStudentExamSchema = createSelectSchema(studentExams, {
+  status: AttemptStatus,
+}).pick({
+  examId: true,
+  studentId: true,
+});
+
+export const createStudentAnswerSchema = createSelectSchema(
+  studentAnswers
+).pick({
+  studentExamId: true,
+  questionId: true,
+  answer: true,
+  selectedOptionId: true,
+});
+
+// *************************************Types************************************
+
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type User = typeof users.$inferSelect;
+export type UserRole = z.infer<typeof UserRole>;
+
+export type InsertExam = z.infer<typeof insertExamSchema>;
+export type Exam = typeof exams.$inferSelect;
+
 export type InsertStudentAnswer = z.infer<typeof insertStudentAnswerSchema>;
 export type StudentAnswer = typeof studentAnswers.$inferSelect;
+
+export type InsertQuestion = z.infer<typeof insertQuestionSchema>;
+export type Question = typeof questions.$inferSelect;
+export type QuestionType = z.infer<typeof QuestionType>;
+
+export type InsertStudentExam = z.infer<typeof insertStudentExamSchema>;
+export type StudentExam = typeof studentExams.$inferSelect;
+export type AttemptStatus = z.infer<typeof AttemptStatus>;
+
+export type InsertOption = z.infer<typeof insertOptionSchema>;
+export type Option = typeof options.$inferSelect;

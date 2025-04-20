@@ -14,7 +14,7 @@ const extendedUserSchema = insertUserSchema.extend({
   role: insertUserSchema.shape.role.refine(
     (role) => role === "student" || role === "professor",
     { message: "Role must be either 'student' or 'professor'" }
-  )
+  ),
 });
 
 type RegisterData = typeof extendedUserSchema._type;
@@ -26,7 +26,11 @@ type AuthContextType = {
   error: Error | null;
   loginMutation: UseMutationResult<Omit<User, "password">, Error, LoginData>;
   logoutMutation: UseMutationResult<void, Error, void>;
-  registerMutation: UseMutationResult<Omit<User, "password">, Error, RegisterData>;
+  registerMutation: UseMutationResult<
+    Omit<User, "password">,
+    Error,
+    RegisterData
+  >;
 };
 
 export const AuthContext = createContext<AuthContextType | null>(null);
@@ -34,7 +38,7 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  
+
   const {
     data: user,
     error,
@@ -51,14 +55,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (user: Omit<User, "password">) => {
       queryClient.setQueryData(["/api/user"], user);
-      
+
       // Redirect based on role
       if (user.role === "professor") {
         setLocation("/professor");
       } else {
         setLocation("/student");
       }
-      
+
       toast({
         title: "Login successful",
         description: `Welcome back, ${user.firstName}!`,
@@ -80,14 +84,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (user: Omit<User, "password">) => {
       queryClient.setQueryData(["/api/user"], user);
-      
+
       // Redirect based on role
       if (user.role === "professor") {
         setLocation("/professor");
       } else {
         setLocation("/student");
       }
-      
+
       toast({
         title: "Registration successful",
         description: `Welcome, ${user.firstName}!`,
@@ -109,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     onSuccess: () => {
       queryClient.setQueryData(["/api/user"], null);
       setLocation("/auth");
-      
+
       toast({
         title: "Logged out successfully",
       });

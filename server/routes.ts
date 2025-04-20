@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import { randomBytes } from "crypto";
+import { db } from "./db/client";
 import {
   insertExamSchema,
   insertQuestionSchema,
