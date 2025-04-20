@@ -2,13 +2,16 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Express } from "express";
 import session from "express-session";
+import connectPg from "connect-pg-simple";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
-import { promisify } from "util";
-import { storage } from "./storage";
-import { insertUserSchema, User as SelectUser } from "@shared/schema";
+
+import { eq } from "drizzle-orm";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
-import { db } from "./db/client";
+
+import { users, insertUserSchema, type SelectUser } from "./../db/schema";
+import { db, pool } from "./../db/index";
+import { comparePasswords, hashPassword } from "../utils/passwordUtils.ts";
 
 declare global {
   namespace Express {
@@ -16,130 +19,79 @@ declare global {
   }
 }
 
-const scryptAsync = promisify(scrypt);
+const PostgresSessionStore = connectPg(session);
 
-async function hashPassword(password: string) {
-  const salt = randomBytes(16).toString("hex");
-  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
-  return `${buf.toString("hex")}.${salt}`;
-}
-
-async function comparePasswords(supplied: string, stored: string) {
-  const [hashed, salt] = stored.split(".");
-  const hashedBuf = Buffer.from(hashed, "hex");
-  const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-  return timingSafeEqual(hashedBuf, suppliedBuf);
+async function getUserByEmail(email: string) {
+  return db.select().from(users).where(eq(users.email, email)).limit(1);
 }
 
 export function setupAuth(app: Express) {
+  const store = new PostgresSessionStore({ pool, createTableIfMissing: true });
   const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET || "ai-grader-session-secret",
+    secret: process.env.REPL_ID! || "secret",
     resave: false,
     saveUninitialized: false,
-    store: storage.sessionStore,
-    cookie: {
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 1000 * 60 * 60 * 24 * 7, // 1 week
-    },
+    store,
   };
 
-  app.set("trust proxy", 1);
+  if (app.get("env") === "production") {
+    app.set("trust proxy", 1);
+  }
+
   app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // User login with email instead of username
   passport.use(
-    new LocalStrategy(
-      {
-        usernameField: "email",
-        passwordField: "password",
-      },
-      async (email, password, done) => {
-        try {
-          const user = await storage.getUserByEmail(email);
-
-          if (!user || !(await comparePasswords(password, user.password))) {
-            return done(null, false, { message: "Invalid email or password" });
-          } else {
-            return done(null, user);
-          }
-        } catch (error) {
-          return done(error);
-        }
+    new LocalStrategy(async (email, password, done) => {
+      const [user] = await getUserByEmail(email);
+      if (!user || !(await comparePasswords(password, user.password))) {
+        return done(null, false, { message: "Invalid email or password" });
+      } else {
+        return done(null, user);
       }
-    )
+    })
   );
 
-  passport.serializeUser((user, done) => done(null, user.id));
-
+  passport.serializeUser((user: SelectUser, done) => done(null, user.id));
   passport.deserializeUser(async (id: number, done) => {
-    try {
-      const user = await storage.getUser(id);
-      done(null, user);
-    } catch (error) {
-      done(error);
-    }
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, id))
+      .limit(1);
+
+    done(null, user);
   });
 
   app.post("/api/register", async (req, res, next) => {
-    try {
-      // Validate using Zod schema
-      const userData = insertUserSchema.parse(req.body);
-
-      // Check if email already exists
-      const existingUser = await storage.getUserByEmail(userData.email);
-      if (existingUser) {
-        return res.status(400).json({ message: "Email already in use" });
-      }
-
-      // Create user with hashed password
-      const hashedPassword = await hashPassword(userData.password);
-      const user = await storage.createUser({
-        ...userData,
-        password: hashedPassword,
-      });
-
-      // Log user in after registration
-      req.login(user, (err) => {
-        if (err) return next(err);
-
-        // Remove password from response
-        const { password, ...userWithoutPassword } = user;
-        res.status(201).json(userWithoutPassword);
-      });
-    } catch (error) {
-      if (error instanceof ZodError) {
-        const validationError = fromZodError(error);
-        return res.status(400).json({ message: validationError.message });
-      }
-      next(error);
+    const result = insertUserSchema.safeParse(req.body);
+    if (!result.success) {
+      const error = fromZodError(result.error);
+      return res.status(400).send(error.toString());
     }
+
+    const [existingUser] = await getUserByEmail(result.data.email);
+    if (existingUser) {
+      return res.status(400).send("Username already exists");
+    }
+
+    const [user] = await db
+      .insert(users)
+      .values({
+        ...result.data,
+        password: await hashPassword(result.data.password),
+      })
+      .returning();
+
+    req.login(user, (err) => {
+      if (err) return next(err);
+      res.status(201).json(user);
+    });
   });
 
-  app.post("/api/login", (req, res, next) => {
-    passport.authenticate(
-      "local",
-      (
-        err: Error | null,
-        user: Express.User | false,
-        info: { message: string } | undefined
-      ) => {
-        if (err) return next(err);
-        if (!user)
-          return res
-            .status(401)
-            .json({ message: info?.message || "Invalid credentials" });
-
-        req.login(user, (err) => {
-          if (err) return next(err);
-
-          // Remove password from response
-          const { password, ...userWithoutPassword } = user;
-          res.json(userWithoutPassword);
-        });
-      }
-    )(req, res, next);
+  app.post("/api/login", passport.authenticate("local"), (req, res) => {
+    res.status(200).json(req.user);
   });
 
   app.post("/api/logout", (req, res, next) => {
@@ -151,9 +103,6 @@ export function setupAuth(app: Express) {
 
   app.get("/api/user", (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-
-    // Remove password from response
-    const { password, ...userWithoutPassword } = req.user!;
-    res.json(userWithoutPassword);
+    res.json(req.user);
   });
 }

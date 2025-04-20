@@ -288,20 +288,26 @@ export const createStudentAnswerSchema = createSelectSchema(
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type UserRole = z.infer<typeof UserRole>;
+export type SelectUser = typeof users.$inferSelect;
 
 export type InsertExam = z.infer<typeof insertExamSchema>;
 export type Exam = typeof exams.$inferSelect;
+export type SelectExam = typeof exams.$inferSelect;
 
 export type InsertStudentAnswer = z.infer<typeof insertStudentAnswerSchema>;
 export type StudentAnswer = typeof studentAnswers.$inferSelect;
+export type SelectStudentAnswer = typeof studentAnswers.$inferSelect;
 
 export type InsertQuestion = z.infer<typeof insertQuestionSchema>;
 export type Question = typeof questions.$inferSelect;
 export type QuestionType = z.infer<typeof QuestionType>;
+export type SelectQuestion = typeof questions.$inferSelect;
 
 export type InsertStudentExam = z.infer<typeof insertStudentExamSchema>;
 export type StudentExam = typeof studentExams.$inferSelect;
 export type AttemptStatus = z.infer<typeof AttemptStatus>;
+export type SelectStudentExam = typeof studentExams.$inferSelect;
 
 export type InsertOption = z.infer<typeof insertOptionSchema>;
 export type Option = typeof options.$inferSelect;
+export type SelectOption = typeof options.$inferSelect;

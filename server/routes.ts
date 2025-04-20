@@ -1,9 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import { randomBytes } from "crypto";
-import { db } from "./db/client";
 import {
   insertExamSchema,
   insertQuestionSchema,
@@ -12,7 +10,7 @@ import {
   insertStudentAnswerSchema,
   InsertExam,
   InsertStudentAnswer,
-} from "@shared/schema";
+} from "./../db/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 import multer from "multer";
