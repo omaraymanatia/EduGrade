@@ -177,7 +177,6 @@ export const insertExamSchema = createInsertSchema(exams, {
   }),
 }).pick({
   title: true,
-  description: true,
   courseCode: true,
   instructions: true,
   duration: true,
@@ -239,7 +238,6 @@ export const createExamSchema = createSelectSchema(exams, {
   }),
 }).pick({
   title: true,
-  description: true,
   courseCode: true,
   instructions: true,
   duration: true,
