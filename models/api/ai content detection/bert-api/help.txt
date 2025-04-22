@@ -1,0 +1,21 @@
+-----------------------------------------
+BERT AI Content Detection API - Quick Guide
+-----------------------------------------
+1. Usage: python app.py (starts server at http://localhost:8000)
+
+2. API Call Example:
+   response = requests.post("http://localhost:8000/predict", 
+                          json={"text": "Your text to analyze"})
+
+3. Response Format:
+   {"class": "AI Generated/Human Written", 
+    "human_probability": float, 
+    "ai_probability": float}
+
+4. Testing:
+   - Run the app script to start the server: python app.py
+   - Run test script: python test.py
+   - Or use health check: GET http://localhost:8000/health
+   - Check model: python bert_test.py
+
+5. Docs: Visit http://localhost:8000/docs for full API documentation
