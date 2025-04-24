@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import DashboardLayout from "@/components/layout/dashboard-layout";
@@ -17,12 +17,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -36,21 +31,24 @@ const profileSchema = z.object({
 });
 
 // Password change schema
-const passwordSchema = z.object({
-  currentPassword: z.string().min(1, "Current password is required"),
-  newPassword: z.string().min(6, "New password must be at least 6 characters"),
-  confirmPassword: z.string().min(6, "Confirm password is required"),
-}).refine(data => data.newPassword === data.confirmPassword, {
-  message: "Passwords do not match",
-  path: ["confirmPassword"],
-});
+const passwordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Current password is required"),
+    newPassword: z
+      .string()
+      .min(6, "New password must be at least 6 characters"),
+    confirmPassword: z.string().min(6, "Confirm password is required"),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
 
 export default function StudentProfile() {
   const { toast } = useToast();
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, setUser } = useAuth();
   const [isEditingProfile, setIsEditingProfile] = useState(false);
-  
-  // Profile form
+
   const profileForm = useForm<z.infer<typeof profileSchema>>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
@@ -59,17 +57,17 @@ export default function StudentProfile() {
       email: user?.email || "",
     },
   });
-  
-  // When user data loads, update form
-  if (user && !isEditingProfile) {
-    profileForm.reset({
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-    });
-  }
-  
-  // Password form
+
+  useEffect(() => {
+    if (user && !isEditingProfile) {
+      profileForm.reset({
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+      });
+    }
+  }, [user, isEditingProfile, profileForm]);
+
   const passwordForm = useForm<z.infer<typeof passwordSchema>>({
     resolver: zodResolver(passwordSchema),
     defaultValues: {
@@ -78,19 +76,19 @@ export default function StudentProfile() {
       confirmPassword: "",
     },
   });
-  
-  // Update profile mutation
+
   const updateProfileMutation = useMutation({
     mutationFn: async (data: z.infer<typeof profileSchema>) => {
       const res = await apiRequest("PUT", "/api/profile", data);
-      return await res.json();
+      const json = await res.json();
+      return json.data.user;
     },
-    onSuccess: () => {
+    onSuccess: (updatedUser) => {
       toast({
         title: "Profile updated",
         description: "Your profile has been updated successfully.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      setUser(updatedUser);
       setIsEditingProfile(false);
     },
     onError: (error: Error) => {
@@ -101,8 +99,7 @@ export default function StudentProfile() {
       });
     },
   });
-  
-  // Change password mutation
+
   const changePasswordMutation = useMutation({
     mutationFn: async (data: z.infer<typeof passwordSchema>) => {
       const res = await apiRequest("PUT", "/api/change-password", {
@@ -126,32 +123,22 @@ export default function StudentProfile() {
       });
     },
   });
-  
+
   // Handle profile form submission
   const onProfileSubmit = (data: z.infer<typeof profileSchema>) => {
     updateProfileMutation.mutate(data);
   };
-  
+
   // Handle password form submission
   const onPasswordSubmit = (data: z.infer<typeof passwordSchema>) => {
     changePasswordMutation.mutate(data);
   };
-  
-  if (authLoading) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-screen">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </DashboardLayout>
-    );
-  }
-  
+
   return (
     <DashboardLayout>
       <div className="container mx-auto px-6 py-8">
         <h3 className="text-gray-700 text-2xl font-medium mb-6">Profile</h3>
-        
+
         <div className="space-y-6">
           <Card>
             {/* Profile Header */}
@@ -170,11 +157,14 @@ export default function StudentProfile() {
                 </div>
               </div>
             </CardHeader>
-            
+
             {/* Profile Form */}
             <CardContent className="p-6">
               <Form {...profileForm}>
-                <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-6">
+                <form
+                  onSubmit={profileForm.handleSubmit(onProfileSubmit)}
+                  className="space-y-6"
+                >
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <FormField
                       control={profileForm.control}
@@ -183,16 +173,19 @@ export default function StudentProfile() {
                         <FormItem>
                           <FormLabel>First Name</FormLabel>
                           <FormControl>
-                            <Input 
-                              {...field} 
-                              disabled={!isEditingProfile || updateProfileMutation.isPending}
+                            <Input
+                              {...field}
+                              disabled={
+                                !isEditingProfile ||
+                                updateProfileMutation.isPending
+                              }
                             />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    
+
                     <FormField
                       control={profileForm.control}
                       name="lastName"
@@ -200,16 +193,19 @@ export default function StudentProfile() {
                         <FormItem>
                           <FormLabel>Last Name</FormLabel>
                           <FormControl>
-                            <Input 
-                              {...field} 
-                              disabled={!isEditingProfile || updateProfileMutation.isPending}
+                            <Input
+                              {...field}
+                              disabled={
+                                !isEditingProfile ||
+                                updateProfileMutation.isPending
+                              }
                             />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    
+
                     <FormField
                       control={profileForm.control}
                       name="email"
@@ -217,9 +213,12 @@ export default function StudentProfile() {
                         <FormItem className="md:col-span-2">
                           <FormLabel>Email</FormLabel>
                           <FormControl>
-                            <Input 
-                              {...field} 
-                              disabled={!isEditingProfile || updateProfileMutation.isPending}
+                            <Input
+                              {...field}
+                              disabled={
+                                !isEditingProfile ||
+                                updateProfileMutation.isPending
+                              }
                             />
                           </FormControl>
                           <FormMessage />
@@ -227,7 +226,7 @@ export default function StudentProfile() {
                       )}
                     />
                   </div>
-                  
+
                   <div className="flex justify-end space-x-2">
                     {isEditingProfile ? (
                       <>
@@ -246,13 +245,14 @@ export default function StudentProfile() {
                         >
                           Cancel
                         </Button>
-                        <Button 
+                        <Button
                           type="submit"
                           disabled={updateProfileMutation.isPending}
                         >
                           {updateProfileMutation.isPending ? (
                             <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
+                              Saving...
                             </>
                           ) : (
                             "Save Changes"
@@ -272,16 +272,19 @@ export default function StudentProfile() {
               </Form>
             </CardContent>
           </Card>
-          
+
           {/* Password Change */}
           <Card>
             <CardHeader>
               <CardTitle>Change Password</CardTitle>
             </CardHeader>
-            
+
             <CardContent className="p-6">
               <Form {...passwordForm}>
-                <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-6">
+                <form
+                  onSubmit={passwordForm.handleSubmit(onPasswordSubmit)}
+                  className="space-y-6"
+                >
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <FormField
                       control={passwordForm.control}
@@ -290,8 +293,8 @@ export default function StudentProfile() {
                         <FormItem>
                           <FormLabel>Current Password</FormLabel>
                           <FormControl>
-                            <Input 
-                              type="password" 
+                            <Input
+                              type="password"
                               {...field}
                               disabled={changePasswordMutation.isPending}
                             />
@@ -300,7 +303,7 @@ export default function StudentProfile() {
                         </FormItem>
                       )}
                     />
-                    
+
                     <FormField
                       control={passwordForm.control}
                       name="newPassword"
@@ -308,8 +311,8 @@ export default function StudentProfile() {
                         <FormItem>
                           <FormLabel>New Password</FormLabel>
                           <FormControl>
-                            <Input 
-                              type="password" 
+                            <Input
+                              type="password"
                               {...field}
                               disabled={changePasswordMutation.isPending}
                             />
@@ -318,7 +321,7 @@ export default function StudentProfile() {
                         </FormItem>
                       )}
                     />
-                    
+
                     <FormField
                       control={passwordForm.control}
                       name="confirmPassword"
@@ -326,8 +329,8 @@ export default function StudentProfile() {
                         <FormItem>
                           <FormLabel>Confirm Password</FormLabel>
                           <FormControl>
-                            <Input 
-                              type="password" 
+                            <Input
+                              type="password"
                               {...field}
                               disabled={changePasswordMutation.isPending}
                             />
@@ -337,15 +340,16 @@ export default function StudentProfile() {
                       )}
                     />
                   </div>
-                  
+
                   <div className="flex justify-end">
-                    <Button 
+                    <Button
                       type="submit"
                       disabled={changePasswordMutation.isPending}
                     >
                       {changePasswordMutation.isPending ? (
                         <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating...
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
+                          Updating...
                         </>
                       ) : (
                         "Change Password"

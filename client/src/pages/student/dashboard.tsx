@@ -32,7 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
+import { useLocation } from "wouter";
 // Exam key validation schema
 const examKeySchema = z.object({
   examKey: z.string().min(1, "Exam key is required"),
@@ -40,6 +40,8 @@ const examKeySchema = z.object({
 
 export default function StudentDashboard() {
   const { toast } = useToast();
+  const [, navigate] = useLocation();
+
   const { user } = useAuth();
   const [isVerifying, setIsVerifying] = useState(false);
 
@@ -66,7 +68,7 @@ export default function StudentDashboard() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/exams"] });
       // Redirect to take exam page
-      window.location.href = `/student/exams/${data.examId}`;
+      navigate(`/student/exams/${data.examId}`);
       form.reset();
     },
     onError: (error: Error) => {

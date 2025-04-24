@@ -5,15 +5,10 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -30,21 +25,22 @@ const profileSchema = z.object({
   email: z.string().email("Invalid email address"),
 });
 
-const passwordSchema = z.object({
-  currentPassword: z.string().min(1, "Current password is required"),
-  newPassword: z.string().min(6, "Password must be at least 6 characters"),
-  confirmPassword: z.string().min(1, "Please confirm your password"),
-}).refine((data) => data.newPassword === data.confirmPassword, {
-  message: "Passwords do not match",
-  path: ["confirmPassword"],
-});
+const passwordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Current password is required"),
+    newPassword: z.string().min(6, "Password must be at least 6 characters"),
+    confirmPassword: z.string().min(1, "Please confirm your password"),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Profile form setup
   const profileForm = useForm<z.infer<typeof profileSchema>>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
@@ -54,7 +50,6 @@ export default function ProfilePage() {
     },
   });
 
-  // Password form setup
   const passwordForm = useForm<z.infer<typeof passwordSchema>>({
     resolver: zodResolver(passwordSchema),
     defaultValues: {
@@ -64,15 +59,14 @@ export default function ProfilePage() {
     },
   });
 
-  // Profile update mutation
   const updateProfileMutation = useMutation({
     mutationFn: async (data: z.infer<typeof profileSchema>) => {
       const res = await apiRequest("PATCH", "/api/profile", data);
-      return await res.json();
+      const json = await res.json();
+      return json.data.user;
     },
-    onSuccess: (data) => {
-      // Update the user in the cache
-      queryClient.setQueryData(["/api/user"], data);
+    onSuccess: (updatedUser) => {
+      setUser(updatedUser); // Update local context instead of queryClient
       toast({
         title: "Profile updated",
         description: "Your profile has been updated successfully.",
@@ -122,7 +116,9 @@ export default function ProfilePage() {
         <CardContent>
           <Form {...profileForm}>
             <form
-              onSubmit={profileForm.handleSubmit((data) => updateProfileMutation.mutate(data))}
+              onSubmit={profileForm.handleSubmit((data) =>
+                updateProfileMutation.mutate(data)
+              )}
               className="space-y-6"
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -171,17 +167,16 @@ export default function ProfilePage() {
                   <FormLabel>Role</FormLabel>
                   <FormControl>
                     <Input
-                      value={user?.role === "professor" ? "Professor" : "Student"}
+                      value={
+                        user?.role === "professor" ? "Professor" : "Student"
+                      }
                       className="bg-gray-50"
                       disabled
                     />
                   </FormControl>
                 </FormItem>
               </div>
-              <Button
-                type="submit"
-                disabled={updateProfileMutation.isPending}
-              >
+              <Button type="submit" disabled={updateProfileMutation.isPending}>
                 {updateProfileMutation.isPending
                   ? "Saving Changes..."
                   : "Save Changes"}

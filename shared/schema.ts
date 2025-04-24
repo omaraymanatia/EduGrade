@@ -309,3 +309,5 @@ export type SelectStudentExam = typeof studentExams.$inferSelect;
 export type InsertOption = z.infer<typeof insertOptionSchema>;
 export type Option = typeof options.$inferSelect;
 export type SelectOption = typeof options.$inferSelect;
+
+export type AuthenticatedUser = Omit<User, "password">;
