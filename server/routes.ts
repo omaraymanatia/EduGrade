@@ -1,7 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 
-import { setupAuth } from "./auth";
 import { randomBytes } from "crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import { ZodError } from "zod";
@@ -12,19 +11,9 @@ import * as authController from "./controllers/authController";
 import * as profController from "./controllers/profController";
 import * as studController from "./controllers/studController";
 
-// Generate a unique exam key (similar to a coupon code format)
-function generateExamKey(): string {
-  // Format: XXX-XXXX-XXX (where X is alphanumeric)
-  const part1 = randomBytes(3).toString("hex").toUpperCase().substring(0, 3);
-  const part2 = randomBytes(4).toString("hex").toUpperCase().substring(0, 4);
-  const part3 = randomBytes(3).toString("hex").toUpperCase().substring(0, 3);
-
-  return `${part1}-${part2}-${part3}`;
-}
-
 export function registerRoutes(app: Express): Server {
-  // Setup authentication routes (/api/register, /api/login, /api/logout)
-  setupAuth(app);
+  app.post("/api/register", authController.signup);
+  app.post("/api/login", authController.login);
 
   app.use(authController.protect);
   // User profile routes
@@ -65,5 +54,3 @@ export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
   return httpServer;
 }
-
-// E08-55FC-8FB

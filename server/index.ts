@@ -11,7 +11,7 @@ app.set("trust proxy", 1);
 
 app.use(
   cors({
-    origin: "http://127.0.0.1:5000",
+    origin: config.FRONTEND_URL,
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
