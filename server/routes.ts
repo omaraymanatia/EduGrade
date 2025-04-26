@@ -6,9 +6,7 @@ import { randomBytes } from "crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
-import multer from "multer";
-import path from "path";
-import fs from "fs";
+import { upload } from "./utils/multer";
 
 import * as authController from "./controllers/authController";
 import * as profController from "./controllers/profController";
@@ -28,7 +26,7 @@ export function registerRoutes(app: Express): Server {
   // Setup authentication routes (/api/register, /api/login, /api/logout)
   setupAuth(app);
 
-  //app.use(authController.protect);
+  app.use(authController.protect);
   // User profile routes
   app.put("/api/profile", authController.profile);
   // Change password route
@@ -55,10 +53,14 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/complete-exam", studController.completeExam);
 
   // Upload and process exam photos with AI
-  app.post("/api/exams/upload", profController.upload);
+  app.post("/api/exams/upload", upload.array("files"), profController.upload);
 
   // Upload student answer images
-  app.post("/api/upload-student-answers", profController.uploadStudentAnswers);
+  app.post(
+    "/api/upload-student-answers",
+    upload.array("files"),
+    profController.uploadStudentAnswers
+  );
 
   const httpServer = createServer(app);
   return httpServer;

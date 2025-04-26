@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import { Request, Response, NextFunction } from "express";
 import { randomBytes } from "crypto";
 import bcrypt from "bcrypt";
@@ -302,6 +304,8 @@ export const upload = catchAsync(
   }
 );
 
+const allowedImageTypes = ["image/jpeg", "image/png", "image/jpg"];
+
 export const uploadStudentAnswers = catchAsync(
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const files = req.files as Express.Multer.File[];
@@ -332,18 +336,34 @@ export const uploadStudentAnswers = catchAsync(
       return next(new AppError("No files uploaded", 400));
     }
 
-    // Log uploaded file details
-    const uploadedFiles = files.map((file) => ({
-      filename: file.filename,
-      path: file.path,
-      size: file.size,
-      mimetype: file.mimetype,
-    }));
+    // Validate file types and optionally move to a permanent location
+    const uploadedImages = [];
+
+    for (const file of files) {
+      if (!allowedImageTypes.includes(file.mimetype)) {
+        // Optionally delete the uploaded invalid file
+        fs.unlinkSync(file.path);
+        return next(
+          new AppError(`Unsupported file type: ${file.originalname}`, 400)
+        );
+      }
+
+      // Optional: Rename or move file
+      const targetPath = path.join("uploads/images", file.filename); // create this folder if needed
+      fs.renameSync(file.path, targetPath);
+
+      uploadedImages.push({
+        filename: file.filename,
+        path: targetPath,
+        size: file.size,
+        mimetype: file.mimetype,
+      });
+    }
 
     res.status(201).json({
-      message: `Successfully uploaded ${files.length} file(s)`,
+      message: `Successfully uploaded ${uploadedImages.length} image(s)`,
       examId,
-      files: uploadedFiles,
+      files: uploadedImages,
     });
   }
 );
