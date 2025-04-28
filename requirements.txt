@@ -18,8 +18,14 @@ seaborn==0.13.2
 tqdm==4.67.1 
 transformers==4.51.3 
 torch
+opencv-python==4.11.0.86
 
 fastapi==0.100.0
 uvicorn==0.22.0
 pydantic>=1.8.0
 python-multipart==0.0.6
+
+# OCR & VLM
+docling
+pytesseract
+
