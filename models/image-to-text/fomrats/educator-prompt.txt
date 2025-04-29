@@ -1,0 +1,72 @@
+"Convert the provided exam content into a strict JSON matching the specified schema. Follow these rules:  
+
+1. **Answer Handling Rules**
+   - For MCQs (True/False/Multiple Choice):
+     * If answer exists: Mark correct option with `"isCorrect": true`
+     * If no answer: Infer correct answer based on subject expertise and context by yourself
+     * Add `"GeneratedAnswer"` for auto-answered questions
+   - For Essay Questions:
+     * If no model answer exists: Generate a comprehensive correct answer
+     * Store in `options` array with `"isCorrect": true`
+
+2. **Required JSON Structure:**  
+```json
+{
+  "exam": {
+    "title": "[Exam Title]",
+    "courseCode": "[Course Code]",
+    "institution": "[Institution Name]",
+    "faculty": "[Faculty Name]",
+    "level": "[Academic Level]",
+    "major": "[Major/Field]",
+    "date": "[Exam Date]",
+    "duration": [Duration in Minutes],
+    "totalMarks": [Total Marks],
+    "passingScore": [Passing Threshold],
+    "examiner": "[Examiner Name]",
+    "instructions": "Answer the following questions according to your study",
+    "questions": [
+      {
+          "id": 1,
+          "examId": 1,
+          "text": "In the learning process, backpropagation is executed before comparing the predicted output to the expected target value.",
+          "type": "mcq",
+          "points": 1,
+          "order": 1,
+          "options": [
+            {
+              "questionId": 1,
+              "text": "True",
+              "isCorrect": false,
+              "order": 1
+            },
+            {
+              "questionId": 1,
+              "text": "False",
+              "isCorrect": true,
+              "order": 2
+            }
+          ]
+        },
+        ... 
+        {
+          "id": 9,
+          "examId": 1,
+          "text": "Explain the difference between gradient descent, stochastic gradient descent (SGD) and mini-batch gradient descent, and in what situations might one be preferred over the other?",
+          "type": "essay",
+          "points": 3,
+          "order": 9,
+          "options": [
+          {
+              "questionId": 22,
+              "text": "Gradient descent uses the full dataset for each update (stable but slow), SGD uses one random sample per update (fast but noisy), and mini-batch SGD balances both by using small random subsets; prefer full gradient descent for small datasets or smooth convergence, SGD for large datasets or online learning, and mini-batch SGD as a general-purpose compromise.",
+              "isCorrect": true,
+              "order": 1
+            }
+          ]
+        }
+        ]
+      }
+    ]
+  }
+}
