@@ -24,5 +24,5 @@ pydantic>=1.8.0,<2.0.0  # Explicit upper bound for FastAPI 0.100.x
 python-multipart==0.0.6
 
 # OCR & VLM
-docling  # Check if specific version is needed
+docling # untill specified version is mentioned
 pytesseract==0.3.10 
