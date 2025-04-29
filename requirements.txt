@@ -4,28 +4,25 @@ nltk==3.8.1
 spacy==3.7.2
 torch==2.1.2
 sentence-transformers==2.3.1
-numpy==1.26.3
+numpy==1.23.5  # Downgraded to fix NumPy 2.x conflicts
 pandas==2.2.3
 datasets==2.4.0
 matplotlib==3.8.0
-seaborn==0.12.2
+seaborn==0.13.2  # Removed duplicate, kept latest
 plotly==5.11.0
 pillow==11.1.0 
 pytest==8.3.4 
-pytorch==2.5.1
-pytorch-cuda ==11.8
-seaborn==0.13.2 
+# Removed 'pytorch==2.5.1' (conflict with 'torch')
+# Removed 'pytorch-cuda==11.8' (handled by PyTorch install)
 tqdm==4.67.1 
 transformers==4.51.3 
-torch
 opencv-python==4.11.0.86
 
 fastapi==0.100.0
 uvicorn==0.22.0
-pydantic>=1.8.0
+pydantic>=1.8.0,<2.0.0  # Explicit upper bound for FastAPI 0.100.x
 python-multipart==0.0.6
 
 # OCR & VLM
-docling
-pytesseract
-
+docling  # Check if specific version is needed
+pytesseract==0.3.10 
