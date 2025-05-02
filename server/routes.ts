@@ -42,12 +42,16 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/complete-exam", studController.completeExam);
 
   // Upload and process exam photos with AI
-  app.post("/api/exams/upload", upload.array("files"), profController.upload);
+  app.post(
+    "/api/exams/upload",
+    upload.array("images", 10),
+    profController.uploadExamPhotos
+  );
 
   // Upload student answer images
   app.post(
     "/api/upload-student-answers",
-    upload.array("files"),
+    upload.array("images", 10),
     profController.uploadStudentAnswers
   );
 

@@ -3,7 +3,13 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Loader2, Upload, X, Image, CheckCircle } from "lucide-react";
@@ -14,7 +20,11 @@ type StudentAnswerUploadProps = {
   onSuccess?: () => void;
 };
 
-export function StudentAnswerUpload({ examId, studentExamId, onSuccess }: StudentAnswerUploadProps) {
+export function StudentAnswerUpload({
+  examId,
+  studentExamId,
+  onSuccess,
+}: StudentAnswerUploadProps) {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -24,8 +34,8 @@ export function StudentAnswerUpload({ examId, studentExamId, onSuccess }: Studen
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const files = Array.from(e.target.files);
-      const validFiles = files.filter(file => file.type.startsWith('image/'));
-      
+      const validFiles = files.filter((file) => file.type.startsWith("image/"));
+
       if (validFiles.length !== files.length) {
         toast({
           title: "Invalid file format",
@@ -33,19 +43,19 @@ export function StudentAnswerUpload({ examId, studentExamId, onSuccess }: Studen
           variant: "destructive",
         });
       }
-      
+
       // Create previews
-      validFiles.forEach(file => {
+      validFiles.forEach((file) => {
         const reader = new FileReader();
         reader.onload = (e) => {
           if (e.target?.result) {
-            setPreviews(prev => [...prev, e.target!.result as string]);
+            setPreviews((prev) => [...prev, e.target!.result as string]);
           }
         };
         reader.readAsDataURL(file);
       });
-      
-      setSelectedFiles(prev => [...prev, ...validFiles]);
+
+      setSelectedFiles((prev) => [...prev, ...validFiles]);
     }
   };
 
@@ -54,7 +64,7 @@ export function StudentAnswerUpload({ examId, studentExamId, onSuccess }: Studen
     const newFiles = [...selectedFiles];
     newFiles.splice(index, 1);
     setSelectedFiles(newFiles);
-    
+
     const newPreviews = [...previews];
     newPreviews.splice(index, 1);
     setPreviews(newPreviews);
@@ -64,17 +74,22 @@ export function StudentAnswerUpload({ examId, studentExamId, onSuccess }: Studen
   const uploadMutation = useMutation({
     mutationFn: async () => {
       if (selectedFiles.length === 0) return;
-      
+
       const formData = new FormData();
-      formData.append('examId', examId.toString());
-      formData.append('studentExamId', studentExamId.toString());
-      
-      selectedFiles.forEach((file, index) => {
+
+      formData.append("examId", examId.toString());
+      formData.append("studentExamId", studentExamId.toString());
+
+      selectedFiles.forEach((file) => {
         formData.append(`images`, file);
       });
-      
-      const res = await apiRequest("POST", "/api/upload-student-answers", formData);
-      
+
+      const res = await apiRequest(
+        "POST",
+        "/api/upload-student-answers",
+        formData
+      );
+
       return await res.json();
     },
     onSuccess: (data) => {
@@ -82,14 +97,14 @@ export function StudentAnswerUpload({ examId, studentExamId, onSuccess }: Studen
         title: "Upload successful",
         description: `Successfully uploaded ${selectedFiles.length} image(s)`,
       });
-      
+
       // Clear the form
       setSelectedFiles([]);
       setPreviews([]);
-      
+
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: [`/api/exams/${examId}`] });
-      
+
       if (onSuccess) {
         onSuccess();
       }
@@ -125,7 +140,7 @@ export function StudentAnswerUpload({ examId, studentExamId, onSuccess }: Studen
               ref={fileInputRef}
               className="hidden"
             />
-            <div 
+            <div
               className="border-2 border-dashed rounded-md py-10 px-4 text-center cursor-pointer hover:bg-muted/50 transition-colors"
               onClick={() => fileInputRef.current?.click()}
             >
@@ -140,7 +155,7 @@ export function StudentAnswerUpload({ examId, studentExamId, onSuccess }: Studen
               </div>
             </div>
           </div>
-          
+
           {/* Preview area */}
           {previews.length > 0 && (
             <div className="space-y-2">
@@ -149,9 +164,9 @@ export function StudentAnswerUpload({ examId, studentExamId, onSuccess }: Studen
                 {previews.map((preview, index) => (
                   <div key={index} className="relative group">
                     <div className="w-full aspect-square rounded-md overflow-hidden border">
-                      <img 
-                        src={preview} 
-                        alt={`Preview ${index + 1}`} 
+                      <img
+                        src={preview}
+                        alt={`Preview ${index + 1}`}
                         className="w-full h-full object-cover"
                       />
                     </div>
@@ -168,11 +183,11 @@ export function StudentAnswerUpload({ examId, studentExamId, onSuccess }: Studen
               </div>
             </div>
           )}
-          
+
           {/* Upload button */}
           <div className="flex justify-end">
-            <Button 
-              type="button" 
+            <Button
+              type="button"
               onClick={() => fileInputRef.current?.click()}
               variant="outline"
               className="mr-2"
@@ -193,12 +208,13 @@ export function StudentAnswerUpload({ examId, studentExamId, onSuccess }: Studen
               ) : (
                 <>
                   <Upload className="mr-2 h-4 w-4" />
-                  Upload {selectedFiles.length > 0 ? `(${selectedFiles.length})` : ''}
+                  Upload{" "}
+                  {selectedFiles.length > 0 ? `(${selectedFiles.length})` : ""}
                 </>
               )}
             </Button>
           </div>
-          
+
           {/* Success message */}
           {uploadMutation.isSuccess && (
             <div className="flex items-center p-3 bg-green-50 border border-green-200 rounded-md">

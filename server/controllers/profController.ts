@@ -249,6 +249,8 @@ export const createExam = catchAsync(
   }
 );
 
+const allowedImageTypes = ["image/jpeg", "image/png", "image/jpg"];
+
 export const upload = catchAsync(
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const files = req.files as Express.Multer.File[];
@@ -304,12 +306,13 @@ export const upload = catchAsync(
   }
 );
 
-const allowedImageTypes = ["image/jpeg", "image/png", "image/jpg"];
-
 export const uploadStudentAnswers = catchAsync(
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const files = req.files as Express.Multer.File[];
     const examId = parseInt(req.body.examId);
+
+    console.log("Exam ID:", req.body);
+    console.log("Uploaded Files:", files); // Log the files to debug
 
     if (isNaN(examId)) {
       return next(new AppError("Valid exam ID is required", 400));
@@ -349,7 +352,7 @@ export const uploadStudentAnswers = catchAsync(
       }
 
       // Optional: Rename or move file
-      const targetPath = path.join("uploads/images", file.filename); // create this folder if needed
+      const targetPath = path.join("uploads/student_answers", file.filename); // create this folder if needed
       fs.renameSync(file.path, targetPath);
 
       uploadedImages.push({

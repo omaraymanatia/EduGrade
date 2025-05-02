@@ -5,3 +5,5 @@
 # Migrate data into an online database (neon for instance)
 
 # Handle photos upload to store photos in uploads folder
+
+# Add text answers to the essay questions
