@@ -44,7 +44,7 @@ export function registerRoutes(app: Express): Server {
   // Upload and process exam photos with AI
   app.post(
     "/api/exams/upload",
-    upload.array("images", 10),
+    upload.array("examPhotos", 10),
     profController.uploadExamPhotos
   );
 

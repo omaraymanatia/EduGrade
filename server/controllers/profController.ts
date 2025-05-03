@@ -251,7 +251,7 @@ export const createExam = catchAsync(
 
 const allowedImageTypes = ["image/jpeg", "image/png", "image/jpg"];
 
-export const upload = catchAsync(
+export const uploadExamPhotos = catchAsync(
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const files = req.files as Express.Multer.File[];
 
@@ -289,12 +289,31 @@ export const upload = catchAsync(
 
     const [exam] = await db.insert(exams).values(examData).returning();
 
-    // Prepare uploaded files metadata
-    const uploadedFiles = files.map((file) => ({
-      filename: file.filename,
-      path: file.path,
-      size: file.size,
-    }));
+    // Create directory to store files
+    const examDir = path.join("uploads/exam_photos", exam.id.toString());
+    if (!fs.existsSync(examDir)) {
+      fs.mkdirSync(examDir, { recursive: true });
+    }
+
+    // Move files into the exam folder
+    const uploadedFiles = [];
+    for (const file of files) {
+      if (!allowedImageTypes.includes(file.mimetype)) {
+        return next(
+          new AppError(`Unsupported file type: ${file.originalname}`, 400)
+        );
+      }
+
+      const targetPath = path.join(examDir, file.originalname);
+      fs.renameSync(file.path, targetPath);
+
+      uploadedFiles.push({
+        filename: file.originalname,
+        path: targetPath,
+        size: file.size,
+        mimetype: file.mimetype,
+      });
+    }
 
     res.status(201).json({
       message: "Exam created successfully from uploaded photos",
