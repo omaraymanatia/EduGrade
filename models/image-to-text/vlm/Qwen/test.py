@@ -80,68 +80,63 @@ class ExamProcessor:
             image = Image.open(image_path)
         return image
 
-    def process_exam(self, image_path, metadata=None):
-        """Process an exam image and return structured JSON"""
-        # Load the image
-        image = self.load_image(image_path)
-        
-        # Prepare the prompt
-        user_prompt = """Convert this exam paper into JSON format following the exact schema provided. 
-        Extract all questions and their details including:
-        - Question text
-        - Question type (mcq or essay)
-        - Points value
-        - For MCQs: all options (mark correct ones if indicated)
-        - Maintain original question order
-        
-        Include any exam metadata you can identify from the header."""
-        
-        # Create messages
-        messages = [
-            {"role": "system", "content": self.system_prompt},
-            {
-                "role": "user", 
-                "content": [
-                    {"type": "image", "image": image},
-                    {"type": "text", "text": user_prompt}
-                ]
-            }
-        ]
-        
-        # Process the input
-        text = self.processor.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
-        )
-        image_inputs, video_inputs = process_vision_info(messages)
-        inputs = self.processor(
-            text=[text],
-            images=image_inputs,
-            videos=video_inputs,
-            padding=True,
-            return_tensors="pt"
-        ).to("cuda")
-        
-        # Generate output
-        generated_ids = self.model.generate(
-            **inputs,
-            max_new_tokens=2048,
-            pad_token_id=self.processor.tokenizer.eos_token_id
-        )
-        
-        # Decode and clean the output
-        generated_ids_trimmed = [
-            out_ids[len(in_ids):] 
-            for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
-        ]
-        output_text = self.processor.batch_decode(
-            generated_ids_trimmed, 
-            skip_special_tokens=True, 
-            clean_up_tokenization_spaces=False
-        )[0]
-        
-        # Try to extract JSON from the output
+    def process_exam_image(self, image, metadata=None):
+        """Process exam directly from PIL Image object"""
         try:
-            # Sometimes the model adds text before/after the JSON
+            # Prepare the prompt
+            user_prompt = """Convert this exam paper into JSON format following the exact schema provided. 
+            Extract all questions and their details including:
+            - Question text
+            - Question type (mcq or essay)
+            - Points value
+            - For MCQs: all options (mark correct ones if indicated)
+            - Maintain original question order
+            
+            Include any exam metadata you can identify from the header."""
+            
+            # Create messages
+            messages = [
+                {"role": "system", "content": self.system_prompt},
+                {
+                    "role": "user", 
+                    "content": [
+                        {"type": "image", "image": image},
+                        {"type": "text", "text": user_prompt}
+                    ]
+                }
+            ]
+            
+            # Process the input
+            text = self.processor.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True
+            )
+            image_inputs, video_inputs = process_vision_info(messages)
+            inputs = self.processor(
+                text=[text],
+                images=image_inputs,
+                videos=video_inputs,
+                padding=True,
+                return_tensors="pt"
+            ).to("cuda")
+            
+            # Generate output
+            generated_ids = self.model.generate(
+                **inputs,
+                max_new_tokens=2048,
+                pad_token_id=self.processor.tokenizer.eos_token_id
+            )
+            
+            generated_ids_trimmed = [
+                out_ids[len(in_ids):] 
+                for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+            ]
+            output_text = self.processor.batch_decode(
+                generated_ids_trimmed, 
+                skip_special_tokens=True, 
+                clean_up_tokenization_spaces=False
+            )[0]
+            
+            # Try to extract JSON from the output
             json_start = output_text.find('{')
             json_end = output_text.rfind('}') + 1
             json_str = output_text[json_start:json_end]
@@ -153,10 +148,13 @@ class ExamProcessor:
                 exam_data['exam'].update(metadata)
                 
             return exam_data
-        except json.JSONDecodeError as e:
-            print("Failed to parse JSON output:")
-            print(output_text)
-            raise e
+        except Exception as e:
+            raise Exception(f"Error processing exam: {str(e)}")
+
+    def process_exam(self, image_path, metadata=None):
+        """Process an exam from file path or URL"""
+        image = self.load_image(image_path)
+        return self.process_exam_image(image, metadata)
 
     def save_to_file(self, data, output_path):
         """Save the extracted data to a JSON file"""
@@ -184,7 +182,7 @@ if __name__ == "__main__":
     }
     
     # Process an exam image (can be file path or URL)
-    exam_image_path = "/kaggle/input/exams-images/best.png"  # or "https://example.com/exam.jpg"
+    exam_image_path = r"F:\Graduation Project\repo\Grad-Project\models\image-to-text\exams\deep\deep1.jpg"  # or "https://example.com/exam.jpg"
     
     try:
         # Process the exam
