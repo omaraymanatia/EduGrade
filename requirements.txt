@@ -26,3 +26,11 @@ python-multipart==0.0.6
 # OCR & VLM
 docling # untill specified version is mentioned
 pytesseract==0.3.10 
+qwen-vl-utils[decord]==0.0.8 # qwen2 model
+ninja
+packaging
+huggingface-hub==0.16.4 # for qwen-vl-utils
+accelerate
+diffusers
+sentencepiece 
+bitsandbytes 
