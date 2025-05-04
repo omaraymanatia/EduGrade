@@ -1,73 +1,147 @@
-import json
-import requests
-import os
+import torch
+from transformers import Qwen2_5_VLForConditionalGeneration, AutoTokenizer, AutoProcessor
+from qwen_vl_utils import process_vision_info
+from huggingface_hub import login
+from transformers import BitsAndBytesConfig
 from PIL import Image
-import base64
-from io import BytesIO
+import os
 
-# Load API key from environment variable
-API_URL = "https://api-inference.huggingface.co/models/Qwen/Qwen1.5-1.8B-Instruct"
-API_KEY = "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"  # Set this in your environment variables
+quant_config = BitsAndBytesConfig(
+    load_in_4bit=True,  # Use 4-bit quantization (smallest memory footprint)
+    bnb_4bit_compute_dtype=torch.float16,
+)
 
-if not API_KEY:
-    raise ValueError("Please set your Hugging Face API key in the HF_API_KEY environment variable")
+login(token="your-token-here")  # Replace with your Hugging Face token
 
-def encode_image_to_base64(image_path):
-    """Convert image to base64 for API input"""
-    with open(image_path, "rb") as img_file:
-        return base64.b64encode(img_file.read()).decode("utf-8")
+model = Qwen2_5_VLForConditionalGeneration.from_pretrained("Qwen/Qwen2.5-VL-7B-Instruct",
+    torch_dtype=torch.float16,
+    device_map="auto")
 
-def query_qwen_model(image_base64, prompt):
-    """Send image and prompt to Qwen model"""
-    headers = {"Authorization": f"Bearer {API_KEY}"}
-    payload = {
-        "inputs": {
-            "image": image_base64,
-            "question": prompt
+processor = AutoProcessor.from_pretrained("Qwen/Qwen2.5-VL-7B-Instruct")
+
+
+image = '/kaggle/input/exam-images/deep1.jpg'
+prompt = """Convert the provided exam content into a strict JSON matching the specified SQL schema. Follow these rules:
+
+1. **For MCQs (True/False or Multiple Choice):**  
+   - Map all options with `isCorrect: false` by default (never answer for the student).  
+   - If the question includes a pre-selected answer, mark `isCorrect: true` for that option.  
+   - If no answer is provided, leave `options` as an empty list.  
+
+2. **Question Types:**  
+   - `mcq`: For True/False or multiple-choice questions.  
+   - `essay`: For open-ended questions (no options).  
+
+3. **Required JSON Structure:**  
+```json
+{
+  "exam": {
+    "title": "[Exam Title]",
+    "courseCode": "[Course Code]",
+    "institution": "[Institution Name]",
+    "faculty": "[Faculty Name]",
+    "level": "[Academic Level]",
+    "major": "[Major/Field]",
+    "date": "[Exam Date]",
+    "duration": [Duration in Minutes],
+    "totalMarks": [Total Marks],
+    "passingScore": [Passing Threshold],
+    "examiner": "[Examiner Name]",
+    "instructions": "Answer the following questions according to your study",
+    "questions": [
+      {
+        "id": 1,
+        "text": "Google File System (GFS) is designed for small data-intensive applications.",
+        "type": "mcq",
+        "points": 1,
+        "order": 1,
+        "options": [
+          { "text": "True", "isCorrect": false, "order": 1 },
+          { "text": "False", "isCorrect": false, "order": 2 }
+        ]
+      },
+      ...
+      {
+        "id": 14,
+        "text": "If you have six processes from D1 to D2, apply (ring algorithm) to detect the coordinator of the ring, known that D1 discovers that the coordinator D2 is dead, but will start election (you must draw each step with brief description).",
+        "type": "essay",
+        "points": 1,
+        "order": 14,
+        "options": []
+      }
+      ... 
+    ]
+  }
+}"""
+
+
+
+# Create output directory if it doesn't exist
+output_dir = '/kaggle/output'
+os.makedirs(output_dir, exist_ok=True)
+
+# Function to process image and generate JSON
+def process_exam_image(image_path, question_prompt):
+    messages = [{"role": "user", "content": [{"type": "image", "image": image_path}, {"type": "text", "text": question_prompt}]}]
+    text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    image_inputs, video_inputs = process_vision_info(messages)
+    inputs = processor(text=[text], images=image_inputs, videos=video_inputs, padding=True, return_tensors="pt")
+    inputs = inputs.to("cuda")
+    
+    # Generate response without token limit constraint
+    generated_ids = model.generate(**inputs, max_length=model.config.max_position_embeddings)
+    
+    generated_ids_trimmed = [
+        out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+    ]
+    output_text = processor.batch_decode(generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False)
+    
+    return output_text[0]
+
+# Process the image
+result_text = process_exam_image(image, prompt)
+
+import json
+# Try to parse the result as JSON
+try:
+    # Strip any potential markdown code block formatting
+    if "```json" in result_text:
+        json_text = result_text.split("```json")[1].split("```")[0].strip()
+    elif "```" in result_text:
+        json_text = result_text.split("```")[1].strip()
+    else:
+        json_text = result_text.strip()
+    
+    # Parse to validate JSON structure
+    result_json = json.loads(json_text)
+    
+    # Save to output file
+    output_path = os.path.join(output_dir, 'exam_results.json')
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(result_json, f, ensure_ascii=False, indent=2)
+    
+    print(f"Successfully saved JSON output to {output_path}")
+    
+    # Print a preview of the JSON
+    print("\nJSON Preview (first few questions):")
+    questions = result_json.get('exam', {}).get('questions', [])
+    preview_count = min(3, len(questions))
+    preview = {
+        "exam": {
+            "title": result_json.get('exam', {}).get('title', ''),
+            "questions": questions[:preview_count]
         }
     }
+    print(json.dumps(preview, indent=2))
+    print(f"\nTotal questions processed: {len(questions)}")
     
-    response = requests.post(API_URL, headers=headers, json=payload)
+except json.JSONDecodeError as e:
+    print(f"Error parsing JSON: {e}")
+    print("Raw output (may not be valid JSON):")
+    print(result_text)
     
-    if response.status_code != 200:
-        raise Exception(f"API request failed with status {response.status_code}: {response.text}")
-    
-    return response.json()
-
-def generate_exam_json(image_path):
-    """Generate structured exam JSON from image"""
-    try:
-        image_base64 = encode_image_to_base64(image_path)
-        
-        prompt = """
-        [Your prompt here...]
-        """
-        
-        response = query_qwen_model(image_base64, prompt)
-        
-        # Handle different possible response formats
-        if isinstance(response, list):
-            # Try to extract generated text
-            if "generated_text" in response[0]:
-                exam_json = json.loads(response[0]["generated_text"])
-            else:
-                exam_json = response  # Return raw response for inspection
-        else:
-            exam_json = response
-        
-        return exam_json
-    
-    except Exception as e:
-        return {"error": str(e)}
-
-# Example Usage
-if __name__ == "__main__":
-    image_path = r"F:\Graduation Project\repo\Grad-Project\models\image-to-text\exams\deep\deep1.jpg"
-    output_json = "exam_output.json"
-
-    exam_data = generate_exam_json(image_path)
-    
-    with open(output_json, "w") as f:
-        json.dump(exam_data, f, indent=2)
-
-    print("Exam JSON generated successfully!")
+    # Save the raw output anyway
+    output_path = os.path.join(output_dir, 'exam_results_raw.txt')
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write(result_text)
+    print(f"Saved raw output to {output_path}")
