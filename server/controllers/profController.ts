@@ -214,6 +214,7 @@ export const createExam = catchAsync(
         const questionData = insertQuestionSchema.parse({
           examId: exam.id,
           text: q.text,
+          model_answer: q.model_answer,
           type: q.type,
           points: q.points,
           order: i + 1,

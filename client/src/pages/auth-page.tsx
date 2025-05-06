@@ -47,7 +47,7 @@ const registerSchema = z.object({
 });
 
 export default function AuthPage() {
-  const { user, isLoading, loginMutation, registerMutation } = useAuth();
+  const { user, loginMutation, registerMutation } = useAuth();
   const [activeTab, setActiveTab] = useState("login");
 
   const loginForm = useForm<z.infer<typeof loginSchema>>({

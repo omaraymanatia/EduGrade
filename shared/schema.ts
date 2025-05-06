@@ -65,6 +65,7 @@ export const questions = pgTable("questions", {
     .notNull()
     .references(() => exams.id, { onDelete: "cascade" }),
   text: text("text").notNull(),
+  model_answer: text("model_answer"),
   type: text("type").notNull(),
   points: integer("points").notNull(),
   order: integer("order").notNull(),
@@ -86,16 +87,16 @@ export const options = pgTable("options", {
     .notNull()
     .references(() => questions.id, { onDelete: "cascade" }),
   text: text("text").notNull(),
-      isCorrect: boolean("is_correct").notNull().default(false),
-      order: integer("order").notNull(),
-    });
+  isCorrect: boolean("is_correct").notNull().default(false),
+  order: integer("order").notNull(),
+});
 
-    export const optionsRelations = relations(options, ({ one }) => ({
-      question: one(questions, {
-        fields: [options.questionId],
-        references: [questions.id],
-      }),
-    }));
+export const optionsRelations = relations(options, ({ one }) => ({
+  question: one(questions, {
+    fields: [options.questionId],
+    references: [questions.id],
+  }),
+}));
 
 // Student Exams (attempts)
 export const studentExams = pgTable("student_exams", {
@@ -193,6 +194,7 @@ export const insertQuestionSchema = createInsertSchema(questions, {
   text: true,
   type: true,
   points: true,
+  model_answer: true,
   order: true,
 });
 
@@ -254,6 +256,7 @@ export const createQuestionSchema = createSelectSchema(questions, {
   text: true,
   type: true,
   points: true,
+  model_answer: true,
   order: true,
 });
 

@@ -223,7 +223,10 @@ export default function ProfessorCreateExam() {
       questions: data.questions.map((q) => {
         if (q.type === QUESTION_TYPES.ESSAY) {
           const { options, ...essayQuestion } = q;
-          return essayQuestion;
+          return {
+            ...essayQuestion,
+            modelAnswer: q.modelAnswer,
+          };
         }
         return q;
       }),
