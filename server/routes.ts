@@ -15,7 +15,6 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/register", authController.signup);
   app.post("/api/login", authController.login);
 
-  app.use(authController.protect);
   // User profile routes
   app.put("/api/profile", authController.profile);
   // Change password route

@@ -10,17 +10,7 @@ export function ProtectedRoute({
   path: string;
   component: () => ReactNode;
 }) {
-  const { user, isLoading } = useAuth();
-
-  if (isLoading) {
-    return (
-      <Route path={path}>
-        <div className="flex items-center justify-center min-h-screen">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </Route>
-    );
-  }
+  const { user } = useAuth();
 
   if (!user) {
     return (
