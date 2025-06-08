@@ -1,10 +1,21 @@
-import { createContext, ReactNode, useContext, useState } from "react";
-import { useMutation, UseMutationResult } from "@tanstack/react-query";
+import {
+  createContext,
+  ReactNode,
+  useContext,
+  useState,
+  useEffect,
+} from "react";
+import {
+  useMutation,
+  useQuery,
+  UseMutationResult,
+} from "@tanstack/react-query";
 import { insertUserSchema, User } from "@shared/schema";
-import { apiRequest, queryClient } from "../lib/queryClient";
+import { apiRequest } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 
+// Extend schema to enforce allowed roles
 const extendedUserSchema = insertUserSchema.extend({
   role: insertUserSchema.shape.role.refine(
     (role) => role === "student" || role === "professor",
@@ -27,22 +38,45 @@ type AuthContextType = {
   >;
 };
 
-export const AuthContext = createContext<AuthContextType | null>(null);
+// ✅ Create Auth Context
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// ✅ Auth Provider
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [user, setUser] = useState<Omit<User, "password"> | null>(null);
 
+  // ✅ Auto-login check on mount
+  const { data: meData, error: meError } = useQuery({
+    queryKey: ["/api/me"],
+    queryFn: async () => {
+      const res = await fetch("/api/me", { credentials: "include" });
+      if (!res.ok) throw new Error("Not authenticated");
+      const json = await res.json();
+      return json.data.user as Omit<User, "password">;
+    },
+    staleTime: Infinity,
+    retry: false,
+  });
+  // Set user state based on query result
+  useEffect(() => {
+    if (meData) {
+      setUser(meData);
+    } else if (meError) {
+      setUser(null);
+    }
+  }, [meData, meError]);
+
+  // ✅ Login Mutation
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
       const res = await apiRequest("POST", "/api/login", credentials);
       const json = await res.json();
-      return json.data.user;
+      return json.data.user as Omit<User, "password">;
     },
     onSuccess: (user) => {
       setUser(user);
-
       setLocation(user.role === "professor" ? "/professor" : "/student");
 
       toast({
@@ -59,15 +93,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  // ✅ Register Mutation
   const registerMutation = useMutation({
     mutationFn: async (data: RegisterData) => {
       const res = await apiRequest("POST", "/api/register", data);
       const json = await res.json();
-      return json.data.user;
+      return json.data.user as Omit<User, "password">;
     },
     onSuccess: (user) => {
       setUser(user);
-
       setLocation(user.role === "professor" ? "/professor" : "/student");
 
       toast({
@@ -84,6 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  // ✅ Logout Mutation
   const logoutMutation = useMutation({
     mutationFn: async () => {
       await apiRequest("POST", "/api/logout");
@@ -120,6 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// ✅ Auth hook
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {

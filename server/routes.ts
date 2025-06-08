@@ -15,6 +15,10 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/register", authController.signup);
   app.post("/api/login", authController.login);
 
+  app.post("/api/logout", authController.logout);
+
+  app.get("/api/me", authController.me);
+
   // User profile routes
   app.put("/api/profile", authController.profile);
   // Change password route

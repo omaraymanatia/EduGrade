@@ -11,6 +11,6 @@ router.patch(
   authController.protect,
   authController.updatePassword
 );
-router.get("/user", authController.protect, authController.getUser);
+router.get("/user", authController.protect, authController.getUserFromRequest);
 
 export default router;

@@ -14,6 +14,9 @@ app.use(
     origin: config.FRONTEND_URL,
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
+    // Add these headers to ensure cookies work properly
+    allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
+    exposedHeaders: ["set-cookie"],
   })
 );
 app.use(express.json());

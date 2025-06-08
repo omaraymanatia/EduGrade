@@ -269,10 +269,86 @@ export const updatePassword = catchAsync(
 );
 
 export const logout = (req: Request, res: Response): void => {
+  // Clear the cookie with the exact same options (minus expires)
   res.clearCookie("jwt", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production", // optional: depends on env
-    sameSite: "strict", // optional: depends on how your site is structured
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    path: "/",
   });
-  res.status(200).json({ status: "success" });
+
+  // Also forcibly expire the cookie as a fallback
+  res.cookie("jwt", "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    path: "/",
+    expires: new Date(0),
+  });
+
+  res.status(200).json({ status: "success", message: "Logged out" });
 };
+
+export const me = catchAsync(
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    let token: string | undefined;
+
+    // 1) Get token from header or cookie
+    if (req.headers.authorization?.startsWith("Bearer ")) {
+      token = req.headers.authorization.split(" ")[1];
+    } else if (req.cookies?.jwt) {
+      token = req.cookies.jwt;
+    }
+
+    if (!token) {
+      return next(
+        new AppError("You are not logged in! Please log in to get access.", 401)
+      );
+    }
+
+    // 2) Verify token
+    let decoded: JwtPayload;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
+    } catch (err) {
+      return next(new AppError("Invalid or expired token", 401));
+    }
+
+    // 3) Check if user still exists
+    const userId = parseInt(decoded.id);
+    if (isNaN(userId)) {
+      return next(new AppError("Invalid token payload", 401));
+    }
+
+    const [currentUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!currentUser) {
+      return next(
+        new AppError("The user belonging to this token no longer exists.", 401)
+      );
+    }
+
+    // 4) Grant access — set req.user for downstream use if needed
+    req.user = {
+      ...currentUser,
+      role: currentUser.role as "professor" | "student",
+    };
+
+    // 5) Respond with safe user data (excluding password)
+    const { password, ...safeUser } = currentUser;
+
+    res.status(200).json({
+      status: "success",
+      data: {
+        user: {
+          ...safeUser,
+          role: currentUser.role as "professor" | "student",
+        },
+      },
+    });
+  }
+);
