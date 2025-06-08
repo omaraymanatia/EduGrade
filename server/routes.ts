@@ -40,6 +40,8 @@ export function registerRoutes(app: Express): Server {
   // Complete an exam
   app.post("/api/complete-exam", studController.completeExam);
 
+  app.delete("/api/exams/:id", profController.deleteExam);
+
   // Upload and process exam photos with AI
   app.post(
     "/api/exams/upload",

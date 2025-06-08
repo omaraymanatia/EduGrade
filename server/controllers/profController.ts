@@ -390,3 +390,38 @@ export const uploadStudentAnswers = catchAsync(
     });
   }
 );
+
+export const deleteExam = catchAsync(
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const examId = parseInt(req.params.id);
+
+    if (isNaN(examId)) {
+      return next(new AppError("Invalid exam ID", 400));
+    }
+
+    const user = await getUserFromRequest(req);
+
+    const exam = await db
+      .select()
+      .from(exams)
+      .where(eq(exams.id, examId))
+      .then((rows) => rows[0]);
+
+    if (!exam) {
+      return next(new AppError("Exam not found", 404));
+    }
+
+    if (exam.creatorId !== user.id) {
+      return next(
+        new AppError("You don't have permission to delete this exam", 403)
+      );
+    }
+
+    await db.delete(exams).where(eq(exams.id, examId));
+
+    res.status(204).json({
+      status: "success",
+      message: "Exam deleted successfully",
+    });
+  }
+);

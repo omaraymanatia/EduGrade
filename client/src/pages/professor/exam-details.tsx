@@ -53,6 +53,8 @@ export default function ProfessorExamDetails() {
   }
   const examId = parseInt(id);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Fetch exam details
   interface ExamDetails {
@@ -112,6 +114,28 @@ export default function ProfessorExamDetails() {
         title: "Exam key copied to clipboard",
         description: examDetails.examKey,
       });
+    }
+  };
+
+  // Delete exam mutation
+  const deleteExam = async () => {
+    setIsDeleting(true);
+    try {
+      await apiRequest("DELETE", `/api/exams/${examId}`);
+      toast({
+        title: "Exam deleted",
+        description: "The exam has been deleted successfully.",
+      });
+      navigate("/professor/exams");
+    } catch (error: any) {
+      toast({
+        title: "Failed to delete exam",
+        description: error.message || "An error occurred.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
     }
   };
 
@@ -323,6 +347,7 @@ export default function ProfessorExamDetails() {
                   <Button
                     variant="outline"
                     className="text-red-600 hover:text-red-700"
+                    onClick={() => setShowDeleteDialog(true)}
                   >
                     <Trash2 className="mr-2 h-4 w-4" /> Delete Exam
                   </Button>
@@ -598,6 +623,38 @@ export default function ProfessorExamDetails() {
             <DialogFooter>
               <Button onClick={() => setShowPreviewDialog(false)}>
                 Close Preview
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Exam</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete this exam? This action cannot be
+                undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteDialog(false)}
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={deleteExam}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                Delete
               </Button>
             </DialogFooter>
           </DialogContent>

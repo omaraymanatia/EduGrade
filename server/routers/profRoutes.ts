@@ -1,41 +1,41 @@
-import express, { Router } from 'express';
+import express, { Router } from "express";
 
-import * as authController from '../controllers/authController';
-import * as profController from '../controllers/profController';
+import * as authController from "../controllers/authController";
+import * as profController from "../controllers/profController";
 
 const router: Router = express.Router();
 
 router
-  .route('/exams')
+  .route("/exams")
   .get(
     authController.protect,
-    authController.restrictTo('professor'),
+    authController.restrictTo("professor"),
     profController.getAllExams
   )
   .post(
     authController.protect,
-    authController.restrictTo('professor'),
+    authController.restrictTo("professor"),
     profController.createExam
   );
 
 router.get(
-  '/exams/:id',
+  "/exams/:id",
   authController.protect,
-  authController.restrictTo('professor'),
+  authController.restrictTo("professor"),
   profController.getExamByID
 );
 
 router.post(
-  'exams/upload',
+  "exams/upload",
   authController.protect,
-  authController.restrictTo('professor'),
-  profController.upload
+  authController.restrictTo("professor"),
+  profController.uploadExamPhotos
 );
 
 router.post(
-  'upload-student-answers',
+  "upload-student-answers",
   authController.protect,
-  authController.restrictTo('professor'),
+  authController.restrictTo("professor"),
   profController.uploadStudentAnswers
 );
 
