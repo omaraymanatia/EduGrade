@@ -26,13 +26,8 @@ matplotlib==3.8.0
 seaborn==0.13.2
 plotly==5.11.0
 
-# Image Processing & OCR
-pillow==11.1.0
-opencv-python==4.11.0.86
-pytesseract==0.3.10
 
-# Document Processing
-docling
+
 
 # VLM & Model Utils
 qwen-vl-utils[decord]==0.0.8
