@@ -1,36 +1,59 @@
+# Core ML/AI Libraries
 scikit-learn==1.4.0
 tensorflow==2.10.0
+torch==2.7.1
+numpy==1.23.5
+pandas==2.2.3
+
+# NLP Libraries
 nltk==3.8.1
 spacy==3.7.2
-torch==2.1.2
 sentence-transformers==2.3.1
-numpy==1.23.5  # Downgraded to fix NumPy 2.x conflicts
-pandas==2.2.3
+transformers==4.51.3
 datasets==2.4.0
-matplotlib==3.8.0
-seaborn==0.13.2  # Removed duplicate, kept latest
-plotly==5.11.0
-pillow==11.1.0 
-pytest==8.3.4 
-# Removed 'pytorch==2.5.1' (conflict with 'torch')
-# Removed 'pytorch-cuda==11.8' (handled by PyTorch install)
-tqdm==4.67.1 
-transformers==4.51.3 
-opencv-python==4.11.0.86
+sentencepiece
 
-fastapi==0.100.0
-uvicorn==0.22.0
-pydantic>=1.8.0,<2.0.0  # Explicit upper bound for FastAPI 0.100.x
+# Web Frameworks
+fastapi==0.104.1
+uvicorn==0.23.2
+flask>=2.0.0
+pydantic==2.4.2
+
 python-multipart==0.0.6
 
-# OCR & VLM
-docling # untill specified version is mentioned
-pytesseract==0.3.10 
-qwen-vl-utils[decord]==0.0.8 # qwen2 model
-ninja
-packaging
-huggingface-hub==0.16.4 # for qwen-vl-utils
+# Visualization
+matplotlib==3.8.0
+seaborn==0.13.2
+plotly==5.11.0
+
+# Image Processing & OCR
+pillow==11.1.0
+opencv-python==4.11.0.86
+pytesseract==0.3.10
+
+# Document Processing
+docling
+
+# VLM & Model Utils
+qwen-vl-utils[decord]==0.0.8
+huggingface-hub==0.16.4
 accelerate
 diffusers
-sentencepiece 
-bitsandbytes 
+bitsandbytes
+
+# LlamaIndex
+llama-index-core==0.10.4
+llama-index-embeddings-huggingface==0.1.4
+llama-index>=0.10.0
+
+# Google AI
+google-generativeai==0.3.1
+
+# Utilities
+requests==2.31.0
+tqdm==4.67.1
+ninja
+packaging
+
+# Testing
+pytest==8.3.4
