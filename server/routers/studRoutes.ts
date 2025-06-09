@@ -1,31 +1,31 @@
-import express, { Router } from 'express';
-import * as authController from '../controllers/authController';
-import * as studController from '../controllers/studController';
+import express, { Router } from "express";
+import * as authController from "../controllers/authController";
+import * as studController from "../controllers/studController";
 
 const router: Router = express.Router();
 
 router.post(
-  '/verify-exam-key',
+  "/verify-exam-key",
   authController.protect,
-  authController.restrictTo('student'),
+  authController.restrictTo("student"),
   studController.verifyExamKey
 );
 router.post(
-  '/start-exam',
+  "/start-exam",
   authController.protect,
-  authController.restrictTo('student'),
+  authController.restrictTo("student"),
   studController.startExam
 );
 router.post(
-  '/submit-answer',
+  "/submit-answer",
   authController.protect,
-  authController.restrictTo('student'),
+  authController.restrictTo("student"),
   studController.submitAnswer
 );
 router.post(
-  '/complete-exam',
+  "/complete-exam",
   authController.protect,
-  authController.restrictTo('student'),
+  authController.restrictTo("student"),
   studController.completeExam
 );
 

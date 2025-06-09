@@ -1,10 +1,16 @@
 import express, { type Request, Response, NextFunction } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import { createServer } from "http";
 
 import { config } from "./config.ts";
-import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+
+import authRoutes from "./routers/authRoutes";
+import profRoutes from "./routers/profRoutes";
+import studRoutes from "./routers/studRoutes";
+import { upload } from "./utils/multer";
+import * as profController from "./controllers/profController";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -54,8 +60,27 @@ app.use((req, res, next) => {
   next();
 });
 
+// Use routers
+app.use("/api", authRoutes);
+app.use("/api", profRoutes);
+app.use("/api", studRoutes);
+
+// Upload and process exam photos with AI
+app.post(
+  "/api/exams/upload",
+  upload.array("examPhotos", 10),
+  profController.uploadExamPhotos
+);
+
+// Upload student answer images
+app.post(
+  "/api/upload-student-answers",
+  upload.array("images", 10),
+  profController.uploadStudentAnswers
+);
+
 (async () => {
-  const server = await registerRoutes(app);
+  const server = createServer(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     let status = err.status || err.statusCode || 500;

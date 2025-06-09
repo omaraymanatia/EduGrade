@@ -18,25 +18,13 @@ router
     profController.createExam
   );
 
-router.get(
-  "/exams/:id",
-  authController.protect,
-  authController.restrictTo("professor"),
-  profController.getExamByID
-);
+router
+  .route("/exams/:id")
+  .all(authController.protect, authController.restrictTo("professor"))
+  .get(profController.getExamByID)
+  .patch(profController.updateExam)
+  .delete(profController.deleteExam);
 
-router.post(
-  "exams/upload",
-  authController.protect,
-  authController.restrictTo("professor"),
-  profController.uploadExamPhotos
-);
-
-router.post(
-  "upload-student-answers",
-  authController.protect,
-  authController.restrictTo("professor"),
-  profController.uploadStudentAnswers
-);
+// The upload routes are handled in index.ts with multer
 
 export default router;

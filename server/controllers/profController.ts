@@ -211,10 +211,37 @@ export const createExam = catchAsync(
       for (let i = 0; i < req.body.questions.length; i++) {
         const q = req.body.questions[i];
 
+        let model_answer: string | undefined = undefined;
+
+        if (
+          q.type === QuestionType.enum.multiple_choice &&
+          Array.isArray(q.options)
+        ) {
+          // Always store the text of the correct option as model_answer
+          const correctOption = q.options.find(
+            (opt: any) =>
+              opt.isCorrect &&
+              typeof opt.text === "string" &&
+              opt.text.trim() !== ""
+          );
+          if (correctOption) {
+            model_answer = correctOption.text;
+          } else {
+            model_answer = ""; // fallback to empty string if no correct option
+          }
+        } else if (typeof q.modelAnswer === "string") {
+          // For essay questions, use modelAnswer as is
+          model_answer = q.modelAnswer;
+        } else if (typeof q.model_answer === "string") {
+          model_answer = q.model_answer;
+        }
+
+        console.log("Creating question:", model_answer);
+
         const questionData = insertQuestionSchema.parse({
           examId: exam.id,
           text: q.text,
-          model_answer: q.model_answer,
+          model_answer,
           type: q.type,
           points: q.points,
           order: i + 1,
@@ -423,5 +450,44 @@ export const deleteExam = catchAsync(
       status: "success",
       message: "Exam deleted successfully",
     });
+  }
+);
+
+export const updateExam = catchAsync(
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const examId = parseInt(req.params.id);
+
+    if (isNaN(examId)) {
+      return next(new AppError("Invalid exam ID", 400));
+    }
+
+    const user = await getUserFromRequest(req);
+
+    const exam = await db
+      .select()
+      .from(exams)
+      .where(eq(exams.id, examId))
+      .then((rows) => rows[0]);
+
+    if (!exam) {
+      return next(new AppError("Exam not found", 404));
+    }
+
+    if (exam.creatorId !== user.id) {
+      return next(
+        new AppError("You don't have permission to update this exam", 403)
+      );
+    }
+
+    // Parse and validate updated exam data
+    const updatedData = insertExamSchema.partial().parse(req.body);
+
+    const [updatedExam] = await db
+      .update(exams)
+      .set(updatedData)
+      .where(eq(exams.id, examId))
+      .returning();
+
+    res.status(200).json(updatedExam);
   }
 );
