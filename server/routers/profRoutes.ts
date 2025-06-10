@@ -9,7 +9,7 @@ router
   .route("/exams")
   .get(
     authController.protect,
-    authController.restrictTo("professor"),
+    /*authController.restrictTo("professor"),*/
     profController.getAllExams
   )
   .post(
@@ -20,7 +20,7 @@ router
 
 router
   .route("/exams/:id")
-  .all(authController.protect, authController.restrictTo("professor"))
+  .all(authController.protect /*authController.restrictTo("professor")*/)
   .get(profController.getExamByID)
   .patch(profController.updateExam)
   .delete(profController.deleteExam);

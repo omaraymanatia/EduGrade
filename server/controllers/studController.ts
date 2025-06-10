@@ -20,6 +20,7 @@ import {
 } from "@shared/schema";
 
 import { getUserFromRequest } from "./authController";
+import { gradeExam } from "../utils/gradeExam";
 
 declare global {
   namespace Express {
@@ -213,35 +214,33 @@ export const completeExam = catchAsync(
       return next(new AppError("This exam attempt is already completed", 400));
     }
 
-    // Get all answers
-    const answers = await db
-      .select()
-      .from(studentAnswers)
-      .where(eq(studentAnswers.studentExamId, studentExamId));
+    console.log("Starting grading for studentExamId:", studentExamId);
+    try {
+      // Call gradeExam function to grade the exam and get the updated record directly
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
-    // Get all questions
-    const examQuestions = await db
-      .select()
-      .from(questions)
-      .where(eq(questions.examId, studentExam.examId));
+      const updatedAttempt = await gradeExam(studentExamId);
 
-    // Calculate score
-    const totalPoints = examQuestions.reduce((sum, q) => sum + q.points, 0);
-    const earnedPoints = answers.reduce((sum, a) => sum + (a.points || 0), 0);
-    const score =
-      totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0;
+      if (!updatedAttempt) {
+        console.log(
+          "Graded but couldn't get updated record, fetching manually"
+        );
+        // Fallback to fetching the record if needed
+        const fetched = await db
+          .select()
+          .from(studentExams)
+          .where(eq(studentExams.id, studentExamId))
+          .then((rows) => rows[0]);
 
-    // Update attempt
-    const [updatedAttempt] = await db
-      .update(studentExams)
-      .set({
-        status: AttemptStatus.enum.completed,
-        submittedAt: new Date(),
-        score,
-      })
-      .where(eq(studentExams.id, studentExamId))
-      .returning();
-
-    res.json(updatedAttempt);
+        res.json(fetched);
+      } else {
+        res.json(updatedAttempt);
+      }
+    } catch (error) {
+      console.error("Error during exam grading:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      return next(new AppError("Failed to grade exam: " + errorMessage, 500));
+    }
   }
 );
