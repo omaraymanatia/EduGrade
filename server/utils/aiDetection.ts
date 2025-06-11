@@ -4,7 +4,7 @@ export const detectAIUsage = async (
   text: string
 ): Promise<"Machine-Generated" | "Human-Written"> => {
   try {
-    const { data } = await axios.post("http://localhost:8000/detect", { text });
+    const { data } = await axios.post("http://localhost:7000/detect", { text });
 
     console.log("AI Detection Response:", data);
 

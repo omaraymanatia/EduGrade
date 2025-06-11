@@ -54,6 +54,7 @@ export default function StudentTakeExam() {
     useState<boolean>(false);
   const [isExamComplete, setIsExamComplete] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [completedExamData, setCompletedExamData] = useState<any>(null);
 
   // Define the type for exam details
   interface ExamDetails {
@@ -181,6 +182,7 @@ export default function StudentTakeExam() {
     onSuccess: (data) => {
       setIsExamComplete(true);
       setIsSubmitting(false);
+      setCompletedExamData(data); // Store the completed exam data
       queryClient.invalidateQueries({ queryKey: ["/api/exams"] });
 
       toast({
@@ -303,6 +305,10 @@ export default function StudentTakeExam() {
 
   // Handle completed exam view
   if (isExamComplete) {
+    const score = completedExamData?.score || 0;
+    const passing = examDetails?.passingScore || 0;
+    const isPassed = score >= passing;
+
     return (
       <DashboardLayout>
         <div className="container mx-auto px-6 py-8">
@@ -318,27 +324,24 @@ export default function StudentTakeExam() {
               <div className="flex justify-center gap-8 mb-8">
                 <div>
                   <p className="text-sm text-gray-500">Your Score</p>
-                  <p className="text-3xl font-bold">
-                    {examDetails.studentExam?.score}%
-                  </p>
+                  <p className="text-3xl font-bold">{score}%</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Status</p>
-                  <Badge
-                    variant={
-                      (examDetails.studentExam?.score ?? 0) >=
-                      examDetails.passingScore
-                        ? "default"
-                        : "destructive"
-                    }
-                  >
-                    {(examDetails.studentExam?.score ?? 0) >=
-                    examDetails.passingScore
-                      ? "Passed"
-                      : "Failed"}
+                  <Badge variant={isPassed ? "default" : "destructive"}>
+                    {isPassed ? "Passed" : "Failed"}
                   </Badge>
                 </div>
               </div>
+              {completedExamData?.AI_detected > 0 && (
+                <div className="mt-4 mb-6 p-4 bg-yellow-50 rounded-md border border-yellow-200 text-left">
+                  <p className="font-medium text-yellow-800">Note:</p>
+                  <p className="text-sm text-yellow-700">
+                    AI content was detected in {completedExamData.AI_detected}{" "}
+                    of your answers. This might have affected your score.
+                  </p>
+                </div>
+              )}
               <Button onClick={() => navigate("/student/exams")}>
                 Back to My Exams
               </Button>
