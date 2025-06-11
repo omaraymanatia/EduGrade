@@ -8,6 +8,7 @@ import {
 import {
   useMutation,
   useQuery,
+  useQueryClient, // Add this import for proper cache invalidation
   UseMutationResult,
 } from "@tanstack/react-query";
 import { insertUserSchema, User } from "@shared/schema";
@@ -30,12 +31,13 @@ type AuthContextType = {
   user: Omit<User, "password"> | null;
   setUser: (user: Omit<User, "password"> | null) => void;
   loginMutation: UseMutationResult<Omit<User, "password">, Error, LoginData>;
-  logoutMutation: UseMutationResult<void, Error, void>;
+  logout: () => void;
   registerMutation: UseMutationResult<
     Omit<User, "password">,
     Error,
     RegisterData
   >;
+  isLoading: boolean;
 };
 
 // ✅ Create Auth Context
@@ -45,7 +47,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient(); // Add query client for cache management
   const [user, setUser] = useState<Omit<User, "password"> | null>(null);
+  const [isLoading, setIsLoading] = useState(true); // Add explicit loading state
 
   // ✅ Auto-login check on mount
   const { data: meData, error: meError } = useQuery({
@@ -66,6 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else if (meError) {
       setUser(null);
     }
+    setIsLoading(false); // Set loading to false after check
   }, [meData, meError]);
 
   // ✅ Login Mutation
@@ -125,6 +130,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: () => {
       setUser(null);
+      // Invalidate and reset auth query cache
+      queryClient.setQueryData(["/api/me"], null);
+      queryClient.invalidateQueries({ queryKey: ["/api/me"] });
       setLocation("/auth");
 
       toast({
@@ -146,8 +154,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         setUser,
         loginMutation,
-        logoutMutation,
+        logout: () => logoutMutation.mutate(),
         registerMutation,
+        isLoading:
+          isLoading ||
+          logoutMutation.isPending ||
+          loginMutation.isPending ||
+          registerMutation.isPending,
       }}
     >
       {children}
