@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
 import sys
 import os
@@ -9,17 +9,19 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Add project root to Python path
-sys.path.append(str(Path(__file__).parent.parent))
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.append(str(project_root))
 from models.vlm.gemini.exam_processor import ExamProcessor
 
 # Verify API key is present
 if not os.getenv('GOOGLE_API_KEY'):
     raise ValueError("GOOGLE_API_KEY not found in environment variables. Please set it in .env file")
 
-app = FastAPI(title="Teacher Exam Processing API")
+# Create router instead of app
+router = APIRouter(prefix="/teacher", tags=["teacher"])
 processor = ExamProcessor()
 
-@app.post("/process-exam/")
+@router.post("/process-exam/")
 async def process_exam(file: UploadFile = File(...)):
     """Process teacher's exam and extract structure"""
     try:
@@ -44,7 +46,7 @@ async def process_exam(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/health")
+@router.get("/health")
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy"}

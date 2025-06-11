@@ -1,18 +1,20 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Body
+from fastapi import APIRouter, UploadFile, File, HTTPException, Body
 from fastapi.responses import JSONResponse
 import sys
 import os
 from pathlib import Path
 from typing import Dict
 
-# Add models directory to Python path
-sys.path.append(str(Path(__file__).parent.parent))
+# Add project root to Python path
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.append(str(project_root))
 from models.vlm.gemini.exam_processor import ExamProcessor
 
-app = FastAPI(title="Student Answer Processing API")
+# Create router instead of app
+router = APIRouter(prefix="/student", tags=["student"])
 processor = ExamProcessor()
 
-@app.post("/process-answers/")
+@router.post("/process-answers/")
 async def process_answers(
     file: UploadFile = File(...),
     exam_structure: Dict = Body(...)
@@ -40,7 +42,7 @@ async def process_answers(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/health")
+@router.get("/health")
 async def health_check():
-    """Health check endpoint"""
+    """Health check endpoint for student API"""
     return {"status": "healthy"}
