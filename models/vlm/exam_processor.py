@@ -38,10 +38,12 @@ class ExamProcessor:
         prompt = """
         Analyze this exam paper and extract the following information in a structured format:
         1. Title of the exam (if any)
-        2. Course code (if any)
-        3. Instructions (if any)
-        4. Duration (in minutes)
-        5. Questions with:
+        2. Subject (if any)
+        3. Year (if any)
+        4. Course code (if any)
+        5. Instructions (if any)
+        6. Duration (in minutes)
+        7. Questions with:
            - Question text
            - Type (MCQ/Essay)
            - Points (default 1 if not specified)
@@ -52,6 +54,9 @@ class ExamProcessor:
         {
             "title": "Untitled Exam",
             "courseCode": "NONE",
+            "subject": "NONE",
+            "year": "NONE",
+            "semester": "NONE",
             "instructions": "",
             "duration": 60,
             "questions": [
@@ -130,10 +135,12 @@ class ExamProcessor:
         return """
         Analyze this exam paper and extract the following information in a structured format:
         1. Title of the exam (if any)
-        2. Course code (if any)
-        3. Instructions (if any)
-        4. Duration (in minutes)
-        5. Questions with:
+        2. Subject (if any)
+        3. Year (if any)
+        4. Course code (if any)
+        5. Instructions (if any)
+        6. Duration (in minutes)
+        7. Questions with:
            - Question text
            - Type (MCQ/Essay)
            - Points (default 1 if not specified)
@@ -144,6 +151,9 @@ class ExamProcessor:
         {
             "title": "Untitled Exam",
             "courseCode": "NONE",
+            "subject": "NONE",
+            "year": "NONE",
+            "semester": "NONE",
             "instructions": "",
             "duration": 60,
             "questions": [
@@ -190,6 +200,8 @@ class ExamProcessor:
             # Normalize field names and ensure required fields
             normalized = {
                 "title": parsed.get("title", "Untitled Exam"),
+                "subject": parsed.get("subject", "NONE").lower(),
+                "year": parsed.get("year", "NONE").lower(),
                 "courseCode": parsed.get("coursecode", "NONE").upper(),
                 "instructions": parsed.get("instructions", ""),
                 "duration": int(parsed.get("duration", 60)),

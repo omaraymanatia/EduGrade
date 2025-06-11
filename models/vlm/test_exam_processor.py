@@ -30,7 +30,7 @@ def test_teacher_exam():
     Path("test_images").mkdir(exist_ok=True)
     
     # Create a sample test image with some text for testing
-    test_image_path = "test_images/sample_exam.png"
+    test_image_path = "F:\Graduation Project\Grad-Project\models\image-to-text\exams\deep\deep1.jpg"
     if not Path(test_image_path).exists():
         # Create a simple test image using PIL
         from PIL import Image, ImageDraw, ImageFont
