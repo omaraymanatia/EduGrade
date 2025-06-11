@@ -129,6 +129,10 @@ googleapis-common-protos==1.70.0
 grpcio==1.73.0 
 grpcio-status==1.71.0
 python-dotenv==1.1.0
-fastapi
-uvicorn
 python-multipart  # needed for file uploads
+uvicorn==0.23.2
+pydantic==2.4.2
+requests==2.31.0
+sentence-transformers==2.2.2
+llama-index-core==0.10.4
+llama-index-embeddings-huggingface==0.1.4
