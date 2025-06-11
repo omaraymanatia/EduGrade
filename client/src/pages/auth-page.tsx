@@ -78,11 +78,11 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-purple-100 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-gradient-to-br from-light-50 to-light-200 flex items-center justify-center p-6">
       <Card className="w-full max-w-5xl rounded-2xl shadow-xl border-0 overflow-hidden">
         <div className="grid md:grid-cols-2">
           {/* Left side - Branding */}
-          <div className="bg-gradient-to-br from-purple-400 to-purple-600 p-10 hidden md:flex flex-col justify-center text-white">
+          <div className="bg-gradient-to-br from-primary to-secondary p-10 hidden md:flex flex-col justify-center text-white">
             <div className="mb-6">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -102,7 +102,7 @@ export default function AuthPage() {
               </svg>
             </div>
             <h2 className="text-3xl font-bold mb-2">AI Grader Platform</h2>
-            <p className="text-purple-100 opacity-90 text-lg">
+            <p className="text-light-300 opacity-90 text-lg">
               The modern solution for academic assessment and examination
               management
             </p>
@@ -111,10 +111,10 @@ export default function AuthPage() {
           {/* Right side - Auth Forms */}
           <div className="bg-white p-10">
             <CardHeader className="p-0 mb-6">
-              <CardTitle className="text-3xl font-semibold text-gray-800">
+              <CardTitle className="text-3xl font-semibold text-primary">
                 {activeTab === "login" ? "Welcome back" : "Create account"}
               </CardTitle>
-              <CardDescription className="text-gray-500 text-md">
+              <CardDescription className="text-secondary text-md">
                 {activeTab === "login"
                   ? "Sign in to your account"
                   : "Get started with AI Grader"}
@@ -126,16 +126,16 @@ export default function AuthPage() {
               onValueChange={setActiveTab}
               className="w-full"
             >
-              <TabsList className="grid w-full grid-cols-2 mb-6 bg-purple-100 p-1 rounded-xl">
+              <TabsList className="grid w-full grid-cols-2 mb-6 bg-light-200 p-1 rounded-xl">
                 <TabsTrigger
                   value="login"
-                  className="data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-purple-600 rounded-md"
+                  className="data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-primary rounded-md"
                 >
                   Sign In
                 </TabsTrigger>
                 <TabsTrigger
                   value="register"
-                  className="data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-purple-600 rounded-md"
+                  className="data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-primary rounded-md"
                 >
                   Register
                 </TabsTrigger>
@@ -153,11 +153,13 @@ export default function AuthPage() {
                       name="email"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-gray-700">Email</FormLabel>
+                          <FormLabel className="text-secondary-700">
+                            Email
+                          </FormLabel>
                           <FormControl>
                             <Input
                               placeholder="your@university.edu"
-                              className="border-gray-300 focus:border-purple-500 focus:ring-purple-500"
+                              className="border-secondary-200 focus:border-accent focus:ring-accent"
                               {...field}
                             />
                           </FormControl>
@@ -172,12 +174,12 @@ export default function AuthPage() {
                       render={({ field }) => (
                         <FormItem>
                           <div className="flex items-center justify-between">
-                            <FormLabel className="text-gray-700">
+                            <FormLabel className="text-secondary-700">
                               Password
                             </FormLabel>
                             <a
                               href="#"
-                              className="text-sm font-medium text-purple-600 hover:text-purple-500"
+                              className="text-sm font-medium text-accent hover:text-accent-400"
                             >
                               Forgot password?
                             </a>
@@ -186,7 +188,7 @@ export default function AuthPage() {
                             <Input
                               type="password"
                               placeholder="••••••••"
-                              className="border-gray-300 focus:border-purple-500 focus:ring-purple-500"
+                              className="border-secondary-200 focus:border-accent focus:ring-accent"
                               {...field}
                             />
                           </FormControl>
@@ -197,7 +199,7 @@ export default function AuthPage() {
 
                     <Button
                       type="submit"
-                      className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium"
+                      className="w-full bg-primary hover:bg-primary-600 text-white font-medium"
                       disabled={loginMutation.isPending}
                     >
                       {loginMutation.isPending ? (
