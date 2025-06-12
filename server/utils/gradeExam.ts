@@ -91,12 +91,11 @@ export async function gradeExam(SstudentExamId: number) {
         question.model_answer
       );
 
-      // Compare student answer with model answer
+      // Direct comparison of option identifiers (a, b, c, d)
       const isCorrect =
         ans.answer &&
         question.model_answer &&
-        ans.answer.trim().toLowerCase() ===
-          question.model_answer.trim().toLowerCase();
+        ans.answer === question.model_answer;
       const points = isCorrect ? question.points : 0;
 
       // Wait for the update to complete

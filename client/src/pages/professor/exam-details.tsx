@@ -415,14 +415,21 @@ export default function ProfessorExamDetails() {
         description: "Please wait while your changes are being saved",
       });
 
+      // Ensure all questions have their points properly set as numbers
+      const processedQuestions = examDetails.questions?.map((q) => ({
+        ...q,
+        points: Number(q.points || 10), // Ensure points is a number
+      }));
+
+      // Log data being sent to server for debugging
       console.log("Sending data to server:", {
-        questions: examDetails.questions,
+        questions: processedQuestions,
         instructions: examDetails.instructions,
       });
 
-      // Send the updated exam to the server
+      // Send the updated exam to the server with processed questions
       const response = await apiRequest("PUT", `/api/exams/${examId}`, {
-        questions: examDetails.questions,
+        questions: processedQuestions,
         instructions: examDetails.instructions,
       });
 
@@ -513,6 +520,27 @@ export default function ProfessorExamDetails() {
         ...examDetails,
         questions: updatedQuestions,
       });
+    }
+  };
+
+  // Update to ensure points is a number when changing in the UI
+  const updateQuestionPoints = (
+    questionId: number | string,
+    points: number
+  ) => {
+    if (!examDetails) return;
+
+    const updatedQuestions = examDetails.questions?.map((q) =>
+      q.id === questionId ? { ...q, points: Number(points) } : q
+    );
+
+    if (updatedQuestions) {
+      queryClient.setQueryData([`/api/exams/${examId}`], {
+        ...examDetails,
+        questions: updatedQuestions,
+      });
+
+      console.log(`Updated question ${questionId} points to ${points}`);
     }
   };
 
@@ -884,7 +912,31 @@ export default function ProfessorExamDetails() {
                   <div className="flex justify-between items-center">
                     <h3 className="font-medium">Question {index + 1}</h3>
                     <div className="flex items-center space-x-2">
-                      <Badge variant="outline">{question.points} points</Badge>
+                      {editMode ? (
+                        <div className="flex items-center">
+                          <label className="text-sm mr-2">Points:</label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="100"
+                            className="w-16 border rounded-md p-1 text-sm"
+                            value={question.points || 10}
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value, 10);
+                              const points = isNaN(value)
+                                ? 10
+                                : Math.max(1, Math.min(100, value));
+
+                              // Use the dedicated function to update points
+                              updateQuestionPoints(question.id, points);
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <Badge variant="outline">
+                          {question.points || 10} points
+                        </Badge>
+                      )}
                       {editMode && (
                         <Button
                           variant="ghost"

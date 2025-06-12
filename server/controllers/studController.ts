@@ -148,42 +148,99 @@ export const submitAnswer = catchAsync(
       return next(new AppError("Question not found", 404));
     }
 
-    // For multiple choice, check correctness
+    // Check if an answer for this question already exists
+    const existingAnswer = await db
+      .select()
+      .from(studentAnswers)
+      .where(
+        and(
+          eq(studentAnswers.studentExamId, studentExamId),
+          eq(studentAnswers.questionId, questionId)
+        )
+      )
+      .then((rows) => rows[0]);
+
+    // For multiple choice, check correctness and store answer as option identifier
     let isCorrect = null;
     let points = null;
+    let formattedAnswer = answer;
 
-    if (
-      question.type === QuestionType.enum.multiple_choice &&
-      selectedOptionId
-    ) {
-      const option = await db
-        .select()
-        .from(options)
-        .where(eq(options.id, selectedOptionId))
-        .then((rows) => rows[0]);
+    if (question.type === QuestionType.enum.multiple_choice) {
+      if (selectedOptionId) {
+        const option = await db
+          .select()
+          .from(options)
+          .where(eq(options.id, selectedOptionId))
+          .then((rows) => rows[0]);
 
-      if (option) {
-        isCorrect = option.isCorrect;
+        if (option) {
+          // Convert option order to identifier (a, b, c, d) based on order property
+          const optionIdentifiers = ["a", "b", "c", "d", "e", "f"];
+          formattedAnswer =
+            optionIdentifiers[option.order - 1] ||
+            String.fromCharCode(96 + option.order);
+
+          isCorrect =
+            option.isCorrect || formattedAnswer === question.model_answer;
+          points = isCorrect ? question.points : 0;
+        } else {
+          // Selected option not found
+          formattedAnswer = null;
+          isCorrect = false;
+          points = 0;
+        }
+      } else if (answer) {
+        // If selectedOptionId not provided but answer is, try to use answer directly
+        // This assumes answer is already the identifier (a, b, c, d)
+        formattedAnswer = answer;
+        isCorrect = formattedAnswer === question.model_answer;
         points = isCorrect ? question.points : 0;
+      } else {
+        // No answer provided
+        formattedAnswer = null;
+        isCorrect = false;
+        points = 0;
       }
     }
 
-    // Create answer
-    const studentAnswerData = insertStudentAnswerSchema.parse({
-      studentExamId,
-      questionId,
-      answer,
-      selectedOptionId,
-    });
+    let studentAnswer;
 
-    const [studentAnswer] = await db
-      .insert(studentAnswers)
-      .values({
-        ...studentAnswerData,
-        isCorrect,
-        points,
-      })
-      .returning();
+    if (existingAnswer) {
+      // Update existing answer
+      const [updatedAnswer] = await db
+        .update(studentAnswers)
+        .set({
+          answer: formattedAnswer,
+          selectedOptionId,
+          isCorrect,
+          points,
+        })
+        .where(eq(studentAnswers.id, existingAnswer.id))
+        .returning();
+
+      studentAnswer = updatedAnswer;
+      console.log("Updated existing answer:", updatedAnswer);
+    } else {
+      // Create new answer
+      const studentAnswerData = insertStudentAnswerSchema.parse({
+        studentExamId,
+        questionId,
+        answer: formattedAnswer, // Use the formatted answer (option identifier for MCQs)
+        selectedOptionId,
+      });
+
+      const [newAnswer] = await db
+        .insert(studentAnswers)
+        .values({
+          ...studentAnswerData,
+          isCorrect,
+          points,
+        })
+        .returning();
+
+      studentAnswer = newAnswer;
+      console.log("Created new answer:", newAnswer);
+    }
 
     res.status(201).json(studentAnswer);
   }

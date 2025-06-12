@@ -580,6 +580,12 @@ export const updateExam = catchAsync(
       return next(new AppError("Invalid exam ID", 400));
     }
 
+    // Log the incoming request body for debugging
+    console.log(
+      "Received update request with data:",
+      JSON.stringify(req.body, null, 2)
+    );
+
     const user = await getUserFromRequest(req);
 
     // Check if exam exists and user has permissions
@@ -654,6 +660,10 @@ export const updateExam = catchAsync(
       // Process each question in the request
       for (let i = 0; i < req.body.questions.length; i++) {
         const question = req.body.questions[i];
+        // Ensure points is always a number
+        const questionPoints = Number(question.points) || 10;
+        console.log(`Processing question ${i + 1}, points:`, questionPoints);
+
         const isExistingQuestion =
           question.id && typeof question.id === "number";
 
@@ -667,25 +677,42 @@ export const updateExam = catchAsync(
             continue;
           }
 
+          // Log comparison for debugging
+          if (existingQuestion) {
+            console.log(`Question ${question.id} points comparison:`, {
+              existing: existingQuestion.points,
+              new: questionPoints,
+              changed: existingQuestion.points !== questionPoints,
+            });
+          }
+
           // Check if question data has changed before updating
           if (
+            !existingQuestion ||
             existingQuestion.text !== question.text ||
             existingQuestion.model_answer !==
               (question.modelAnswer || question.model_answer || "") ||
-            existingQuestion.points !== (question.points || 10) ||
+            existingQuestion.points !== questionPoints ||
             existingQuestion.order !== i + 1
           ) {
-            // Update question with changed fields
+            // Update question with changed fields, including points
+            console.log(
+              `Updating question ${question.id} with points:`,
+              questionPoints
+            );
+
             await db
               .update(questions)
               .set({
                 text: question.text,
                 model_answer:
                   question.modelAnswer || question.model_answer || "",
-                points: question.points || 10,
+                points: questionPoints,
                 order: i + 1,
               })
               .where(eq(questions.id, question.id));
+
+            console.log(`Question ${question.id} updated successfully`);
           }
 
           // Process options for MCQ questions
@@ -755,11 +782,12 @@ export const updateExam = catchAsync(
             examId: examId,
             text: question.text,
             type: question.type,
-            points: question.points || 10,
+            points: questionPoints,
             order: i + 1,
             model_answer: question.modelAnswer || question.model_answer || "",
           };
 
+          console.log("Creating new question with points:", questionPoints);
           // Insert question and get ID
           const [createdQuestion] = await db
             .insert(questions)
