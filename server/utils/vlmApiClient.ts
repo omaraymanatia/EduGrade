@@ -21,20 +21,35 @@ export class VlmApiClient {
         throw new Error("No files provided for processing");
       }
 
-      // Use the first image for processing (can be enhanced to handle multiple images)
-      const filePath = filePaths[0];
+      console.log(
+        `Sending request to process exam photos from: ${filePaths[0]}`
+      );
 
+      const form = new FormData();
+
+      // Use the first image file for processing
+      const filePath = filePaths[0];
       if (!fs.existsSync(filePath)) {
         throw new Error(`File not found: ${filePath}`);
       }
 
-      console.log(`Sending request to process exam photo: ${filePath}`);
-
-      const form = new FormData();
+      // Add the file with the correct field name 'file'
       form.append("file", fs.createReadStream(filePath), {
         filename: path.basename(filePath),
       });
 
+      console.log(
+        "Sending file:",
+        path.basename(filePath),
+        "size:",
+        fs.statSync(filePath).size,
+        "bytes"
+      );
+
+      // Log the form data keys for debugging
+      console.log("Form data keys:", Object.keys(form).join(", "));
+
+      // Make POST request to the API
       const response = await axios.post(
         `${VLM_API_URL}/teacher/process-exam/`,
         form,
@@ -42,7 +57,9 @@ export class VlmApiClient {
           headers: {
             ...form.getHeaders(),
           },
-          timeout: 60000, // 60 seconds timeout
+          timeout: 120000, // 120 seconds timeout
+          maxContentLength: Infinity, // Allow for large files
+          maxBodyLength: Infinity,
         }
       );
 
@@ -52,6 +69,7 @@ export class VlmApiClient {
 
       console.log("VLM API response received successfully");
 
+      // Return the response data
       return response.data;
     } catch (error: any) {
       // Handle network errors

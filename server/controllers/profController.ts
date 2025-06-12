@@ -23,6 +23,8 @@ import {
   QuestionType,
   User,
 } from "@shared/schema";
+import { VlmApiClient } from "../utils/vlmApiClient";
+import { extractExamStructure } from "../utils/examPhotoProcessor";
 
 declare global {
   namespace Express {
@@ -301,30 +303,17 @@ export const uploadExamPhotos = catchAsync(
       examKey = generateExamKey();
     }
 
-    // Construct exam data
-    const examData = {
-      title: "Exam from Photos",
-      courseCode: "AUTO-" + Date.now().toString().slice(-4),
-      description: `Auto-generated exam from ${files.length} uploaded photos`,
-      duration: 60,
-      examKey,
-      creatorId: user.id,
-      passingScore: 70,
-      instructions:
-        "This exam was automatically generated from uploaded photos.",
-      isActive: true,
-    };
-
-    const [exam] = await db.insert(exams).values(examData).returning();
-
     // Create directory to store files
-    const examDir = path.join("uploads/exam_photos", exam.id.toString());
+    const timestamp = Date.now().toString();
+    const examDir = path.join("uploads/exam_photos", timestamp);
     if (!fs.existsSync(examDir)) {
       fs.mkdirSync(examDir, { recursive: true });
     }
 
-    // Move files into the exam folder
+    // Move files into the exam folder and collect file paths
     const uploadedFiles = [];
+    const filePaths = [];
+
     for (const file of files) {
       if (!allowedImageTypes.includes(file.mimetype)) {
         return next(
@@ -341,15 +330,145 @@ export const uploadExamPhotos = catchAsync(
         size: file.size,
         mimetype: file.mimetype,
       });
+
+      filePaths.push(targetPath);
     }
 
-    res.status(201).json({
-      message: "Exam created successfully from uploaded photos",
-      examId: exam.id,
-      title: exam.title,
-      examKey: exam.examKey,
-      uploadedFiles,
-    });
+    try {
+      console.log("Processing exam photos with VLM...");
+
+      // Process image with VLM API - send only one file at a time
+      const rawVlmResult = await VlmApiClient.processExamPhotos(filePaths);
+
+      // Extract structured data from API response with fallbacks
+      const processedExam = extractExamStructure(rawVlmResult);
+
+      console.log(
+        `Extracted ${processedExam.questions.length} questions from exam photo(s)`
+      );
+
+      // Log types of questions extracted
+      const mcqCount = processedExam.questions.filter(
+        (q) => q.type === "multiple_choice"
+      ).length;
+      const essayCount = processedExam.questions.filter(
+        (q) => q.type === "essay"
+      ).length;
+      console.log(`Question types: ${mcqCount} MCQs, ${essayCount} essays`);
+
+      // Construct exam data with processed information
+      const examData = {
+        title: processedExam.title,
+        courseCode: processedExam.courseCode,
+        description: processedExam.description,
+        duration: processedExam.duration,
+        examKey,
+        creatorId: user.id,
+        passingScore: processedExam.passingScore,
+        instructions: processedExam.instructions,
+        isActive: true,
+      };
+
+      // Create the exam in the database
+      const [exam] = await db.insert(exams).values(examData).returning();
+      console.log("Created exam in database with ID:", exam.id);
+
+      // Create questions and options from processed data
+      for (let i = 0; i < processedExam.questions.length; i++) {
+        const q = processedExam.questions[i];
+
+        // Ensure we have the correct question type
+        const questionType =
+          q.type === "multiple_choice"
+            ? QuestionType.enum.multiple_choice
+            : QuestionType.enum.essay;
+
+        // Get model answer based on question type
+        let modelAnswer = q.modelAnswer || "";
+        if (questionType === QuestionType.enum.multiple_choice && q.options) {
+          // For MCQs, use the correct option as model answer if not explicitly set
+          if (!modelAnswer) {
+            const correctOption = q.options.find((opt) => opt.isCorrect);
+            if (correctOption) {
+              modelAnswer = correctOption.text;
+            }
+          }
+        }
+
+        // Create the question in the database
+        const questionData = {
+          examId: exam.id,
+          text: q.text,
+          model_answer: modelAnswer,
+          type: questionType,
+          points: q.points,
+          order: i + 1,
+        };
+
+        console.log(`Creating question ${i + 1}:`, {
+          text: q.text.substring(0, 30) + "...",
+          type: questionType,
+          options: q.type === "multiple_choice" ? q.options.length : 0,
+        });
+
+        const [question] = await db
+          .insert(questions)
+          .values(questionData)
+          .returning();
+
+        console.log(`Created question ${i + 1} with ID:`, question.id);
+
+        // Create options if it's a multiple choice question
+        if (
+          questionType === QuestionType.enum.multiple_choice &&
+          q.options &&
+          q.options.length
+        ) {
+          for (let j = 0; j < q.options.length; j++) {
+            const opt = q.options[j];
+
+            await db.insert(options).values({
+              questionId: question.id,
+              text: opt.text,
+              isCorrect: opt.isCorrect || false,
+              order: j + 1,
+            });
+          }
+          console.log(
+            `Added ${q.options.length} options for question ${i + 1}`
+          );
+        }
+      }
+
+      // Return the created exam with included upload information
+      res.status(201).json({
+        message: "Exam created successfully from uploaded photos",
+        examId: exam.id,
+        title: exam.title,
+        examKey: exam.examKey,
+        uploadedFiles,
+        questionsCount: processedExam.questions.length,
+        questionTypes: {
+          multipleChoice: processedExam.questions.filter(
+            (q) => q.type === "multiple_choice"
+          ).length,
+          essay: processedExam.questions.filter((q) => q.type === "essay")
+            .length,
+        },
+      });
+    } catch (error: any) {
+      console.error("Error processing exam photos:", error);
+      // Clean up the uploaded files on error
+      try {
+        fs.rmSync(examDir, { recursive: true, force: true });
+      } catch (cleanupError) {
+        console.error("Failed to clean up uploaded files:", cleanupError);
+      }
+
+      return next(
+        new AppError(`Failed to process exam photos: ${error.message}`, 500)
+      );
+    }
   }
 );
 
