@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import sys
 from pathlib import Path
@@ -17,6 +18,15 @@ from models.api.vlm.student_api import router as student_router
 
 app = FastAPI(title="AI Grader API")
 
+# Enable CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Replace with specific origins in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Include routers
 app.include_router(teacher_router)
 app.include_router(student_router)
@@ -32,7 +42,7 @@ def main():
         config=uvicorn.Config(
             "models.api.vlm.main_api:app",
             host="0.0.0.0",
-            port=8000,
+            port=6000,
             reload=True,
             reload_dirs=[str(project_root)]
         )

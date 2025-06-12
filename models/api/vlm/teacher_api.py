@@ -4,6 +4,11 @@ import sys
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -35,15 +40,27 @@ async def process_exam(file: UploadFile = File(...)):
             content = await file.read()
             buffer.write(content)
         
+        logger.info(f"Processing exam from file: {file_path}")
+        
         # Process the exam
         result = processor.process_teacher_exam(str(file_path))
         
+        # Ensure the result has the expected structure
+        if not isinstance(result, dict):
+            result = {
+                "title": "Extracted Exam",
+                "questions": []
+            }
+            
         # Clean up
         os.remove(file_path)
+        
+        logger.info(f"Exam processed successfully, returning {len(result.get('questions', []))} questions")
         
         return JSONResponse(content=result)
         
     except Exception as e:
+        logger.error(f"Error processing exam: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/health")
