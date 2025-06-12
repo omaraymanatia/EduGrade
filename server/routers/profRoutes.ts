@@ -22,6 +22,7 @@ router
   .route("/exams/:id")
   .all(authController.protect /*authController.restrictTo("professor")*/)
   .get(profController.getExamByID)
+  .put(profController.updateExam) // Changed from PATCH to PUT for the full update
   .patch(profController.updateExam)
   .delete(profController.deleteExam);
 

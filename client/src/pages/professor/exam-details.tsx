@@ -55,6 +55,10 @@ export default function ProfessorExamDetails() {
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [newQuestionType, setNewQuestionType] = useState<
+    "multiple_choice" | "essay" | null
+  >(null);
 
   // Fetch exam details
   interface ExamDetails {
@@ -225,6 +229,295 @@ export default function ProfessorExamDetails() {
       cell: (data: any) => <Button variant="link">View Details</Button>,
     },
   ];
+
+  // Add function to handle edit mode
+  const handleEditExam = () => {
+    setEditMode(true);
+  };
+
+  // Function to add a new question
+  const addNewQuestion = (type: "multiple_choice" | "essay") => {
+    if (!examDetails) return;
+
+    const newQuestion = {
+      id: `temp_${Date.now()}`, // Temporary ID until saved to DB
+      text:
+        type === "multiple_choice"
+          ? "New multiple choice question"
+          : "New essay question",
+      type: type,
+      points: 10,
+      order: examDetails.questions ? examDetails.questions.length + 1 : 1,
+      modelAnswer: type === "essay" ? "Enter model answer here" : undefined,
+      options:
+        type === "multiple_choice"
+          ? [
+              {
+                id: `temp_opt1_${Date.now()}`,
+                text: "Option 1",
+                isCorrect: true,
+                order: 1,
+              },
+              {
+                id: `temp_opt2_${Date.now()}`,
+                text: "Option 2",
+                isCorrect: false,
+                order: 2,
+              },
+              {
+                id: `temp_opt3_${Date.now()}`,
+                text: "Option 3",
+                isCorrect: false,
+                order: 3,
+              },
+            ]
+          : undefined,
+    };
+
+    // Update local state with the new question
+    queryClient.setQueryData([`/api/exams/${examId}`], {
+      ...examDetails,
+      questions: [...(examDetails.questions || []), newQuestion],
+    });
+
+    setNewQuestionType(null); // Close the dropdown after adding
+  };
+
+  // Add option to MCQ question
+  const addOptionToQuestion = (questionId: number | string) => {
+    if (!examDetails) return;
+
+    const updatedQuestions = examDetails.questions?.map((q) => {
+      if (q.id === questionId && q.type === "multiple_choice") {
+        const newOption = {
+          id: `temp_opt_${Date.now()}`,
+          text: "New option",
+          isCorrect: false,
+          order: q.options ? q.options.length + 1 : 1,
+        };
+
+        return {
+          ...q,
+          options: [...(q.options || []), newOption],
+        };
+      }
+      return q;
+    });
+
+    queryClient.setQueryData([`/api/exams/${examId}`], {
+      ...examDetails,
+      questions: updatedQuestions,
+    });
+  };
+
+  // Function to delete a question
+  const deleteQuestion = (questionId: number | string) => {
+    if (!examDetails) return;
+
+    const updatedQuestions = examDetails.questions?.filter(
+      (q) => q.id !== questionId
+    );
+
+    // Update local state
+    queryClient.setQueryData([`/api/exams/${examId}`], {
+      ...examDetails,
+      questions: updatedQuestions,
+    });
+  };
+
+  // Function to delete an option from a question
+  const deleteOption = (
+    questionId: number | string,
+    optionId: number | string
+  ) => {
+    if (!examDetails) return;
+
+    const updatedQuestions = examDetails.questions?.map((q) => {
+      if (q.id === questionId && q.options) {
+        // Make sure we have at least 2 options after deletion
+        if (q.options.length <= 2) {
+          toast({
+            title: "Cannot delete option",
+            description:
+              "Multiple choice questions must have at least 2 options",
+            variant: "destructive",
+          });
+          return q;
+        }
+
+        // Check if we're trying to delete the only correct option
+        const isCorrectOption = q.options.find(
+          (opt: any) => opt.id === optionId
+        )?.isCorrect;
+        const otherCorrectOptionExists = q.options.some(
+          (opt: any) => opt.isCorrect && opt.id !== optionId
+        );
+
+        if (isCorrectOption && !otherCorrectOptionExists) {
+          toast({
+            title: "Cannot delete option",
+            description: "You must keep at least one correct option",
+            variant: "destructive",
+          });
+          return q;
+        }
+
+        return {
+          ...q,
+          options: q.options.filter((opt: any) => opt.id !== optionId),
+        };
+      }
+      return q;
+    });
+
+    // Update local state
+    queryClient.setQueryData([`/api/exams/${examId}`], {
+      ...examDetails,
+      questions: updatedQuestions,
+    });
+  };
+
+  // Function to handle the save changes with improved validation and error handling
+  const handleSaveChanges = async () => {
+    if (!examDetails) return;
+
+    try {
+      // Validate questions before saving
+      examDetails.questions?.forEach((question) => {
+        if (!question.text || question.text.trim() === "") {
+          throw new Error("Question text cannot be empty");
+        }
+
+        if (question.type === "multiple_choice") {
+          if (!question.options || question.options.length < 2) {
+            throw new Error(
+              "Multiple choice questions must have at least 2 options"
+            );
+          }
+
+          const hasCorrectOption = question.options.some(
+            (opt: any) => opt.isCorrect
+          );
+          if (!hasCorrectOption) {
+            throw new Error(
+              "Multiple choice questions must have at least one correct option"
+            );
+          }
+
+          question.options.forEach((option: any) => {
+            if (!option.text || option.text.trim() === "") {
+              throw new Error("Option text cannot be empty");
+            }
+          });
+        }
+      });
+
+      // Show loading state
+      toast({
+        title: "Saving changes...",
+        description: "Please wait while your changes are being saved",
+      });
+
+      console.log("Sending data to server:", {
+        questions: examDetails.questions,
+        instructions: examDetails.instructions,
+      });
+
+      // Send the updated exam to the server
+      const response = await apiRequest("PUT", `/api/exams/${examId}`, {
+        questions: examDetails.questions,
+        instructions: examDetails.instructions,
+      });
+
+      const responseData = await response.json();
+      console.log("Server response:", responseData);
+
+      if (!response.ok) {
+        throw new Error(responseData.message || "Failed to save changes");
+      }
+
+      // Update local data with server response
+      queryClient.setQueryData([`/api/exams/${examId}`], responseData);
+
+      setEditMode(false);
+      toast({
+        title: "Exam updated successfully",
+        description: "All changes have been saved",
+      });
+    } catch (error: any) {
+      console.error("Error saving changes:", error);
+      toast({
+        title: "Failed to save changes",
+        description: error.message || "An error occurred",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Function to update question text
+  const updateQuestionText = (questionId: number, newText: string) => {
+    const updatedQuestions = examDetails?.questions?.map((q) =>
+      q.id === questionId ? { ...q, text: newText } : q
+    );
+
+    // Update the state
+    if (updatedQuestions && examDetails) {
+      queryClient.setQueryData([`/api/exams/${examId}`], {
+        ...examDetails,
+        questions: updatedQuestions,
+      });
+    }
+  };
+
+  // Function to update option text
+  const updateOptionText = (
+    questionId: number,
+    optionId: number,
+    newText: string
+  ) => {
+    const updatedQuestions = examDetails?.questions?.map((q) => {
+      if (q.id === questionId && q.options) {
+        const updatedOptions = q.options.map((opt: any) =>
+          opt.id === optionId ? { ...opt, text: newText } : opt
+        );
+        return { ...q, options: updatedOptions };
+      }
+      return q;
+    });
+
+    // Update the state
+    if (updatedQuestions && examDetails) {
+      queryClient.setQueryData([`/api/exams/${examId}`], {
+        ...examDetails,
+        questions: updatedQuestions,
+      });
+    }
+  };
+
+  // Function to update correct answer
+  const updateCorrectAnswer = (
+    questionId: number | string,
+    optionId: number | string
+  ) => {
+    const updatedQuestions = examDetails?.questions?.map((q) => {
+      if (q.id === questionId && q.options) {
+        const updatedOptions = q.options.map((opt: any) => ({
+          ...opt,
+          isCorrect: opt.id === optionId,
+        }));
+        return { ...q, options: updatedOptions };
+      }
+      return q;
+    });
+
+    // Update the state
+    if (updatedQuestions && examDetails) {
+      queryClient.setQueryData([`/api/exams/${examId}`], {
+        ...examDetails,
+        questions: updatedQuestions,
+      });
+    }
+  };
 
   return (
     <DashboardLayout>
@@ -541,9 +834,13 @@ export default function ProfessorExamDetails() {
         <Dialog open={showPreviewDialog} onOpenChange={setShowPreviewDialog}>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Exam Preview: {examDetails?.title}</DialogTitle>
+              <DialogTitle>
+                {editMode ? "Edit Exam" : "Exam Preview"}: {examDetails?.title}
+              </DialogTitle>
               <DialogDescription>
-                This is how students will see the exam
+                {editMode
+                  ? "Edit the exam questions and options below"
+                  : "This is how students will see the exam"}
               </DialogDescription>
             </DialogHeader>
 
@@ -562,68 +859,284 @@ export default function ProfessorExamDetails() {
               {examDetails?.instructions && (
                 <div className="bg-yellow-50 p-4 rounded-md border border-yellow-200">
                   <h4 className="font-medium mb-2">Instructions:</h4>
-                  <p>{examDetails.instructions}</p>
+                  {editMode ? (
+                    <textarea
+                      className="w-full border rounded-md p-2"
+                      value={examDetails.instructions}
+                      onChange={(e) => {
+                        if (examDetails) {
+                          queryClient.setQueryData([`/api/exams/${examId}`], {
+                            ...examDetails,
+                            instructions: e.target.value,
+                          });
+                        }
+                      }}
+                      rows={3}
+                    />
+                  ) : (
+                    <p>{examDetails.instructions}</p>
+                  )}
                 </div>
               )}
 
               <Separator />
 
+              {/* Existing questions section */}
               {examDetails?.questions?.map((question: any, index: number) => (
                 <div key={question.id} className="border rounded-md p-4">
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center">
                     <h3 className="font-medium">Question {index + 1}</h3>
-                    <Badge variant="outline">{question.points} points</Badge>
+                    <div className="flex items-center space-x-2">
+                      <Badge variant="outline">{question.points} points</Badge>
+                      {editMode && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-500 h-6 w-6 p-0"
+                          onClick={() => deleteQuestion(question.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <p className="my-3">{question.text}</p>
 
-                  {question.type === "multiple_choice" && question.options && (
+                  {editMode ? (
+                    <textarea
+                      className="w-full border rounded-md p-2 my-3"
+                      value={question.text}
+                      onChange={(e) =>
+                        updateQuestionText(question.id, e.target.value)
+                      }
+                      rows={3}
+                    />
+                  ) : (
+                    <p className="my-3">{question.text}</p>
+                  )}
+
+                  {question.type === "multiple_choice" && (
                     <div className="space-y-2 mt-4">
-                      {question.options.map((option: any) => (
+                      {question.options?.map((option: any) => (
                         <div
                           key={option.id}
-                          className="flex items-center p-2 border rounded-md"
+                          className={`flex items-center p-2 border rounded-md ${
+                            option.isCorrect && editMode
+                              ? "bg-green-50 border-green-200"
+                              : ""
+                          }`}
                         >
-                          <input
-                            type="radio"
-                            name={`question-${question.id}`}
-                            disabled
-                            className="mr-2"
-                          />
-                          <span>{option.text}</span>
+                          {editMode ? (
+                            <>
+                              <input
+                                type="radio"
+                                name={`question-${question.id}`}
+                                checked={option.isCorrect}
+                                onChange={() =>
+                                  updateCorrectAnswer(question.id, option.id)
+                                }
+                                className="mr-2"
+                              />
+                              <textarea
+                                className="flex-1 border-none focus:outline-none bg-transparent"
+                                value={option.text}
+                                onChange={(e) =>
+                                  updateOptionText(
+                                    question.id,
+                                    option.id,
+                                    e.target.value
+                                  )
+                                }
+                              />
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-500 h-6 w-6 p-0"
+                                onClick={() =>
+                                  deleteOption(question.id, option.id)
+                                }
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <input
+                                type="radio"
+                                name={`question-${question.id}`}
+                                disabled
+                                defaultChecked={option.isCorrect}
+                                className="mr-2"
+                              />
+                              <span>{option.text}</span>
+                            </>
+                          )}
                         </div>
                       ))}
+
+                      {/* Add option button for MCQ in edit mode */}
+                      {editMode && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addOptionToQuestion(question.id)}
+                          className="mt-2"
+                        >
+                          + Add Option
+                        </Button>
+                      )}
                     </div>
                   )}
 
                   {question.type === "short_answer" && (
                     <div className="mt-4">
-                      <textarea
-                        className="w-full border rounded-md p-2"
-                        disabled
-                        placeholder="Student's answer will appear here"
-                        rows={2}
-                      ></textarea>
+                      {editMode && (
+                        <div className="mb-2">
+                          <h4 className="font-medium text-sm">
+                            Model Answer (optional):
+                          </h4>
+                          <textarea
+                            className="w-full border rounded-md p-2"
+                            value={question.modelAnswer || ""}
+                            onChange={(e) => {
+                              const updatedQuestions =
+                                examDetails?.questions?.map((q) =>
+                                  q.id === question.id
+                                    ? { ...q, modelAnswer: e.target.value }
+                                    : q
+                                );
+                              if (updatedQuestions && examDetails) {
+                                queryClient.setQueryData(
+                                  [`/api/exams/${examId}`],
+                                  {
+                                    ...examDetails,
+                                    questions: updatedQuestions,
+                                  }
+                                );
+                              }
+                            }}
+                            rows={2}
+                          />
+                        </div>
+                      )}
+                      {!editMode && (
+                        <div className="border border-dashed rounded-md p-3 text-muted-foreground text-sm">
+                          Student answer field will appear here
+                        </div>
+                      )}
                     </div>
                   )}
 
                   {question.type === "essay" && (
                     <div className="mt-4">
-                      <textarea
-                        className="w-full border rounded-md p-2"
-                        disabled
-                        placeholder="Student's essay answer will appear here"
-                        rows={4}
-                      ></textarea>
+                      {editMode ? (
+                        <div className="mb-2">
+                          <h4 className="font-medium text-sm">Model Answer:</h4>
+                          <textarea
+                            className="w-full border rounded-md p-2"
+                            value={question.modelAnswer || ""}
+                            onChange={(e) => {
+                              const updatedQuestions =
+                                examDetails?.questions?.map((q) =>
+                                  q.id === question.id
+                                    ? { ...q, modelAnswer: e.target.value }
+                                    : q
+                                );
+                              if (updatedQuestions && examDetails) {
+                                queryClient.setQueryData(
+                                  [`/api/exams/${examId}`],
+                                  {
+                                    ...examDetails,
+                                    questions: updatedQuestions,
+                                  }
+                                );
+                              }
+                            }}
+                            rows={4}
+                          />
+                        </div>
+                      ) : (
+                        <div className="mt-2">
+                          <h4 className="font-medium text-sm mb-2">
+                            Model Answer:
+                          </h4>
+                          <div className="border rounded-md p-3 bg-gray-50 text-gray-700">
+                            {question.modelAnswer ||
+                              question.model_answer ||
+                              "No model answer provided"}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
               ))}
+
+              {/* Add new question section in edit mode */}
+              {editMode && (
+                <div className="border border-dashed rounded-md p-6 text-center mt-6">
+                  <h3 className="font-medium mb-4">Add New Question</h3>
+
+                  {newQuestionType === null ? (
+                    <div className="space-x-4">
+                      <Button
+                        onClick={() => setNewQuestionType("multiple_choice")}
+                        variant="outline"
+                      >
+                        + Multiple Choice
+                      </Button>
+                      <Button
+                        onClick={() => setNewQuestionType("essay")}
+                        variant="outline"
+                      >
+                        + Essay Question
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex space-x-4 justify-center">
+                      <Button
+                        onClick={() => addNewQuestion(newQuestionType)}
+                        variant="default"
+                      >
+                        Confirm{" "}
+                        {newQuestionType === "multiple_choice"
+                          ? "Multiple Choice"
+                          : "Essay"}{" "}
+                        Question
+                      </Button>
+                      <Button
+                        onClick={() => setNewQuestionType(null)}
+                        variant="outline"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <DialogFooter>
-              <Button onClick={() => setShowPreviewDialog(false)}>
-                Close Preview
-              </Button>
+              {editMode ? (
+                <>
+                  <Button variant="outline" onClick={() => setEditMode(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleSaveChanges}>Save Changes</Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={handleEditExam}
+                    className="mr-2"
+                  >
+                    Edit Exam
+                  </Button>
+                  <Button onClick={() => setShowPreviewDialog(false)}>
+                    Close Preview
+                  </Button>
+                </>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>

@@ -463,6 +463,7 @@ export const updateExam = catchAsync(
 
     const user = await getUserFromRequest(req);
 
+    // Check if exam exists and user has permissions
     const exam = await db
       .select()
       .from(exams)
@@ -479,15 +480,352 @@ export const updateExam = catchAsync(
       );
     }
 
-    // Parse and validate updated exam data
-    const updatedData = insertExamSchema.partial().parse(req.body);
+    // Process questions and track changes
+    let questionsUpdated = false;
+    let instructionsUpdated = false;
 
-    const [updatedExam] = await db
-      .update(exams)
-      .set(updatedData)
+    // Update exam instructions if provided
+    if (
+      req.body.instructions !== undefined &&
+      req.body.instructions !== exam.instructions
+    ) {
+      await db
+        .update(exams)
+        .set({ instructions: req.body.instructions })
+        .where(eq(exams.id, examId));
+
+      instructionsUpdated = true;
+    }
+
+    // Process questions if provided
+    if (req.body.questions && Array.isArray(req.body.questions)) {
+      questionsUpdated = true;
+
+      // Get existing questions and options for comparison and efficient updates
+      const existingQuestions = await db
+        .select()
+        .from(questions)
+        .where(eq(questions.examId, examId));
+
+      const existingQuestionMap = new Map(
+        existingQuestions.map((q) => [q.id, q])
+      );
+
+      // Get all existing options for this exam's questions
+      const existingOptions = await db
+        .select()
+        .from(options)
+        .where(
+          inArray(
+            options.questionId,
+            existingQuestions.map((q) => q.id)
+          )
+        );
+
+      // Group options by question ID for efficient access
+      const optionsByQuestionId = existingOptions.reduce((acc, opt) => {
+        if (!acc[opt.questionId]) acc[opt.questionId] = [];
+        acc[opt.questionId].push(opt);
+        return acc;
+      }, {} as Record<number, typeof existingOptions>);
+
+      // Track processed question IDs to identify deleted questions
+      const processedQuestionIds = new Set<number>();
+
+      // Process each question in the request
+      for (let i = 0; i < req.body.questions.length; i++) {
+        const question = req.body.questions[i];
+        const isExistingQuestion =
+          question.id && typeof question.id === "number";
+
+        if (isExistingQuestion) {
+          // Handle existing question
+          processedQuestionIds.add(question.id);
+          const existingQuestion = existingQuestionMap.get(question.id);
+
+          if (!existingQuestion) {
+            console.warn(`Question ID ${question.id} not found in database`);
+            continue;
+          }
+
+          // Check if question data has changed before updating
+          if (
+            existingQuestion.text !== question.text ||
+            existingQuestion.model_answer !==
+              (question.modelAnswer || question.model_answer || "") ||
+            existingQuestion.points !== (question.points || 10) ||
+            existingQuestion.order !== i + 1
+          ) {
+            // Update question with changed fields
+            await db
+              .update(questions)
+              .set({
+                text: question.text,
+                model_answer:
+                  question.modelAnswer || question.model_answer || "",
+                points: question.points || 10,
+                order: i + 1,
+              })
+              .where(eq(questions.id, question.id));
+          }
+
+          // Process options for MCQ questions
+          if (
+            question.type === QuestionType.enum.multiple_choice &&
+            question.options
+          ) {
+            const existingQuestionOptions =
+              optionsByQuestionId[question.id] || [];
+            const existingOptionMap = new Map(
+              existingQuestionOptions.map((o) => [o.id, o])
+            );
+            const processedOptionIds = new Set<number>();
+
+            // Process each option
+            for (let j = 0; j < question.options.length; j++) {
+              const option = question.options[j];
+              const isExistingOption =
+                option.id && typeof option.id === "number";
+
+              if (isExistingOption) {
+                // Handle existing option
+                processedOptionIds.add(option.id);
+                const existingOption = existingOptionMap.get(option.id);
+
+                if (!existingOption) {
+                  console.warn(`Option ID ${option.id} not found in database`);
+                  continue;
+                }
+
+                // Only update if option data has changed
+                if (
+                  existingOption.text !== option.text ||
+                  existingOption.isCorrect !== option.isCorrect ||
+                  existingOption.order !== j + 1
+                ) {
+                  await db
+                    .update(options)
+                    .set({
+                      text: option.text,
+                      isCorrect: option.isCorrect,
+                      order: j + 1,
+                    })
+                    .where(eq(options.id, option.id));
+                }
+              } else {
+                // Add new option
+                await db.insert(options).values({
+                  questionId: question.id,
+                  text: option.text,
+                  isCorrect: option.isCorrect || false,
+                  order: j + 1,
+                });
+              }
+            }
+
+            // Delete options not included in the request
+            for (const opt of existingQuestionOptions) {
+              if (!processedOptionIds.has(opt.id)) {
+                await db.delete(options).where(eq(options.id, opt.id));
+              }
+            }
+          }
+        } else {
+          // Create new question
+          const newQuestion = {
+            examId: examId,
+            text: question.text,
+            type: question.type,
+            points: question.points || 10,
+            order: i + 1,
+            model_answer: question.modelAnswer || question.model_answer || "",
+          };
+
+          // Insert question and get ID
+          const [createdQuestion] = await db
+            .insert(questions)
+            .values(newQuestion)
+            .returning();
+
+          // Create options for MCQ
+          if (
+            question.type === QuestionType.enum.multiple_choice &&
+            question.options
+          ) {
+            for (let j = 0; j < question.options.length; j++) {
+              const option = question.options[j];
+              await db.insert(options).values({
+                questionId: createdQuestion.id,
+                text: option.text,
+                isCorrect: option.isCorrect || false,
+                order: j + 1,
+              });
+            }
+          }
+        }
+      }
+
+      // Delete questions not included in the request
+      for (const q of existingQuestions) {
+        if (!processedQuestionIds.has(q.id)) {
+          // Delete the question's options first
+          await db.delete(options).where(eq(options.questionId, q.id));
+          // Then delete the question
+          await db.delete(questions).where(eq(questions.id, q.id));
+        }
+      }
+    }
+
+    // Only fetch updated data if changes were made
+    if (questionsUpdated || instructionsUpdated) {
+      // Get updated exam data
+      const updatedExam = await db
+        .select()
+        .from(exams)
+        .where(eq(exams.id, examId))
+        .then((rows) => rows[0]);
+
+      // Get updated questions
+      const updatedQuestions = await db
+        .select()
+        .from(questions)
+        .where(eq(questions.examId, examId))
+        .orderBy(questions.order);
+
+      // Get options for multiple choice questions
+      const questionsWithOptions = await Promise.all(
+        updatedQuestions.map(async (q) => {
+          if (q.type === QuestionType.enum.multiple_choice) {
+            const questionOptions = await db
+              .select()
+              .from(options)
+              .where(eq(options.questionId, q.id))
+              .orderBy(options.order);
+
+            return { ...q, options: questionOptions };
+          }
+          return q;
+        })
+      );
+
+      // Return full updated exam data
+      res.status(200).json({
+        ...updatedExam,
+        questions: questionsWithOptions,
+      });
+    } else {
+      // If no changes were made, just return success
+      res.status(200).json({ message: "No changes detected" });
+    }
+  }
+);
+
+export const updateExamQuestions = catchAsync(
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const examId = parseInt(req.params.id);
+
+    if (isNaN(examId)) {
+      return next(new AppError("Invalid exam ID", 400));
+    }
+
+    const user = await getUserFromRequest(req);
+
+    const exam = await db
+      .select()
+      .from(exams)
       .where(eq(exams.id, examId))
-      .returning();
+      .then((rows) => rows[0]);
 
-    res.status(200).json(updatedExam);
+    if (!exam) {
+      return next(new AppError("Exam not found", 404));
+    }
+
+    if (exam.creatorId !== user.id) {
+      return next(
+        new AppError("You don't have permission to update this exam", 403)
+      );
+    }
+
+    // Validate and parse the questions from the request body
+    const questionsData = req.body.questions || [];
+    const parsedQuestions = questionsData.map((q: any, index: number) => {
+      return insertQuestionSchema.parse({
+        ...q,
+        examId,
+        order: index + 1,
+      });
+    });
+
+    // Insert or update questions
+    for (const questionData of parsedQuestions) {
+      const [question] = await db
+        .insert(questions)
+        .values(questionData)
+        .onConflictDoUpdate({
+          target: [questions.examId, questions.text],
+          set: questionData,
+        })
+        .returning();
+
+      // Handle options for multiple choice questions
+      if (
+        question.type === QuestionType.enum.multiple_choice &&
+        Array.isArray(questionData.options)
+      ) {
+        for (const opt of questionData.options) {
+          const optionData = insertOptionSchema.parse({
+            ...opt,
+            questionId: question.id,
+          });
+
+          await db.insert(options).values(optionData).onConflictDoNothing();
+        }
+      }
+    }
+
+    res.status(200).json({ message: "Exam questions updated successfully" });
+  }
+);
+export const updateExamOptions = catchAsync(
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const examId = parseInt(req.params.id);
+
+    if (isNaN(examId)) {
+      return next(new AppError("Invalid exam ID", 400));
+    }
+
+    const user = await getUserFromRequest(req);
+
+    const exam = await db
+      .select()
+      .from(exams)
+      .where(eq(exams.id, examId))
+      .then((rows) => rows[0]);
+
+    if (!exam) {
+      return next(new AppError("Exam not found", 404));
+    }
+
+    if (exam.creatorId !== user.id) {
+      return next(
+        new AppError("You don't have permission to update this exam", 403)
+      );
+    }
+
+    // Validate and parse the options from the request body
+    const optionsData = req.body.options || [];
+    const parsedOptions = optionsData.map((opt: any) => {
+      return insertOptionSchema.parse({
+        ...opt,
+        questionId: opt.questionId, // Ensure questionId is provided
+      });
+    });
+
+    // Insert or update options
+    for (const optionData of parsedOptions) {
+      await db.insert(options).values(optionData).onConflictDoNothing();
+    }
+
+    res.status(200).json({ message: "Exam options updated successfully" });
   }
 );
