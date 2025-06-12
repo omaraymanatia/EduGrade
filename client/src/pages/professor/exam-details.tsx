@@ -241,14 +241,11 @@ export default function ProfessorExamDetails() {
 
     const newQuestion = {
       id: `temp_${Date.now()}`, // Temporary ID until saved to DB
-      text:
-        type === "multiple_choice"
-          ? "New multiple choice question"
-          : "New essay question",
+      text: "",
       type: type,
       points: 10,
       order: examDetails.questions ? examDetails.questions.length + 1 : 1,
-      modelAnswer: type === "essay" ? "Enter model answer here" : undefined,
+      modelAnswer: type === "essay" ? "" : undefined,
       options:
         type === "multiple_choice"
           ? [

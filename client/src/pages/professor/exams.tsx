@@ -62,21 +62,6 @@ export default function ProfessorExams() {
         </Badge>
       ),
     },
-    {
-      header: "Actions",
-      accessorKey: "id" as keyof Exam,
-      cell: (exam: Exam) => (
-        <Button
-          variant="link"
-          onClick={(e) => {
-            e.stopPropagation();
-            navigate(`/professor/exams/${exam.id}`);
-          }}
-        >
-          View Details
-        </Button>
-      ),
-    },
   ];
 
   return (

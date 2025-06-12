@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, UserCheck, Calendar, Plus } from "lucide-react";
+import { FileText, UserCheck, Plus } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Exam } from "@shared/schema";
@@ -29,7 +29,6 @@ export default function ProfessorDashboard() {
   // Calculate stats
   const totalExams = exams?.length || 0;
   const activeExams = exams?.filter((exam) => exam.isActive).length || 0;
-  const recentExamsCount = recentExams.length;
 
   return (
     <DashboardLayout>
@@ -37,7 +36,7 @@ export default function ProfessorDashboard() {
         <h3 className="text-gray-700 text-2xl font-medium">Dashboard</h3>
 
         {/* Stats Cards */}
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
@@ -75,28 +74,6 @@ export default function ProfessorDashboard() {
                   ) : (
                     <p className="text-2xl font-semibold text-gray-700">
                       {activeExams}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="p-3 rounded-full bg-blue-100 text-blue-600">
-                  <Calendar className="h-6 w-6" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">
-                    Recent Exams
-                  </p>
-                  {isLoading ? (
-                    <Skeleton className="h-8 w-16" />
-                  ) : (
-                    <p className="text-2xl font-semibold text-gray-700">
-                      {recentExamsCount}
                     </p>
                   )}
                 </div>
