@@ -28,5 +28,12 @@ router.post(
   authController.restrictTo("student"),
   studController.completeExam
 );
+// Change back to stud-exams to avoid conflicts with professor routes
+router.get(
+  "/stud-exams",
+  authController.protect,
+  authController.restrictTo("student"),
+  studController.getStudentExams
+);
 
 export default router;

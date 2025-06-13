@@ -219,15 +219,17 @@ export const createExam = catchAsync(
           q.type === QuestionType.enum.multiple_choice &&
           Array.isArray(q.options)
         ) {
-          // Always store the text of the correct option as model_answer
-          const correctOption = q.options.find(
-            (opt: any) =>
-              opt.isCorrect &&
-              typeof opt.text === "string" &&
-              opt.text.trim() !== ""
+          // Find the correct option and use its index as the model_answer (a, b, c, d)
+          const correctOptionIndex = q.options.findIndex(
+            (opt: any) => opt.isCorrect
           );
-          if (correctOption) {
-            model_answer = correctOption.text;
+
+          if (correctOptionIndex !== -1) {
+            // Convert to a, b, c, d format based on index
+            const optionIdentifiers = ["a", "b", "c", "d", "e", "f"];
+            model_answer =
+              optionIdentifiers[correctOptionIndex] ||
+              String.fromCharCode(97 + correctOptionIndex); // Fallback to a, b, c, etc.
           } else {
             model_answer = ""; // fallback to empty string if no correct option
           }
@@ -727,9 +729,16 @@ export const updateExam = catchAsync(
             );
             const processedOptionIds = new Set<number>();
 
+            // Find the correct option to update model_answer
+            let correctOptionIndex = -1;
+
             // Process each option
             for (let j = 0; j < question.options.length; j++) {
               const option = question.options[j];
+              if (option.isCorrect) {
+                correctOptionIndex = j;
+              }
+
               const isExistingOption =
                 option.id && typeof option.id === "number";
 
@@ -767,6 +776,20 @@ export const updateExam = catchAsync(
                   order: j + 1,
                 });
               }
+            }
+
+            // Update model_answer based on correct option index
+            if (correctOptionIndex !== -1) {
+              const optionIdentifiers = ["a", "b", "c", "d", "e", "f"];
+              const model_answer =
+                optionIdentifiers[correctOptionIndex] ||
+                String.fromCharCode(97 + correctOptionIndex);
+
+              // Update the question's model_answer
+              await db
+                .update(questions)
+                .set({ model_answer })
+                .where(eq(questions.id, question.id));
             }
 
             // Delete options not included in the request
@@ -864,115 +887,5 @@ export const updateExam = catchAsync(
       // If no changes were made, just return success
       res.status(200).json({ message: "No changes detected" });
     }
-  }
-);
-
-export const updateExamQuestions = catchAsync(
-  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const examId = parseInt(req.params.id);
-
-    if (isNaN(examId)) {
-      return next(new AppError("Invalid exam ID", 400));
-    }
-
-    const user = await getUserFromRequest(req);
-
-    const exam = await db
-      .select()
-      .from(exams)
-      .where(eq(exams.id, examId))
-      .then((rows) => rows[0]);
-
-    if (!exam) {
-      return next(new AppError("Exam not found", 404));
-    }
-
-    if (exam.creatorId !== user.id) {
-      return next(
-        new AppError("You don't have permission to update this exam", 403)
-      );
-    }
-
-    // Validate and parse the questions from the request body
-    const questionsData = req.body.questions || [];
-    const parsedQuestions = questionsData.map((q: any, index: number) => {
-      return insertQuestionSchema.parse({
-        ...q,
-        examId,
-        order: index + 1,
-      });
-    });
-
-    // Insert or update questions
-    for (const questionData of parsedQuestions) {
-      const [question] = await db
-        .insert(questions)
-        .values(questionData)
-        .onConflictDoUpdate({
-          target: [questions.examId, questions.text],
-          set: questionData,
-        })
-        .returning();
-
-      // Handle options for multiple choice questions
-      if (
-        question.type === QuestionType.enum.multiple_choice &&
-        Array.isArray(questionData.options)
-      ) {
-        for (const opt of questionData.options) {
-          const optionData = insertOptionSchema.parse({
-            ...opt,
-            questionId: question.id,
-          });
-
-          await db.insert(options).values(optionData).onConflictDoNothing();
-        }
-      }
-    }
-
-    res.status(200).json({ message: "Exam questions updated successfully" });
-  }
-);
-export const updateExamOptions = catchAsync(
-  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const examId = parseInt(req.params.id);
-
-    if (isNaN(examId)) {
-      return next(new AppError("Invalid exam ID", 400));
-    }
-
-    const user = await getUserFromRequest(req);
-
-    const exam = await db
-      .select()
-      .from(exams)
-      .where(eq(exams.id, examId))
-      .then((rows) => rows[0]);
-
-    if (!exam) {
-      return next(new AppError("Exam not found", 404));
-    }
-
-    if (exam.creatorId !== user.id) {
-      return next(
-        new AppError("You don't have permission to update this exam", 403)
-      );
-    }
-
-    // Validate and parse the options from the request body
-    const optionsData = req.body.options || [];
-    const parsedOptions = optionsData.map((opt: any) => {
-      return insertOptionSchema.parse({
-        ...opt,
-        questionId: opt.questionId, // Ensure questionId is provided
-      });
-    });
-
-    // Insert or update options
-    for (const optionData of parsedOptions) {
-      await db.insert(options).values(optionData).onConflictDoNothing();
-    }
-
-    res.status(200).json({ message: "Exam options updated successfully" });
   }
 );

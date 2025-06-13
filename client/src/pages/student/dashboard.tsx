@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, GraduationCap, Medal, Search } from "lucide-react";
+import { CheckCircle, Search } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { StudentExam } from "@shared/schema";
@@ -38,6 +38,19 @@ const examKeySchema = z.object({
   examKey: z.string().min(1, "Exam key is required"),
 });
 
+// Add a function to format date with time
+const formatDateWithTime = (date: Date | string | null): string => {
+  if (!date) return "-";
+  const dateObj = date instanceof Date ? date : new Date(date);
+  return dateObj.toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
 export default function StudentDashboard() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
@@ -53,9 +66,12 @@ export default function StudentDashboard() {
     },
   });
 
-  // Fetch exams taken by this student
-  const { data: exams, isLoading } = useQuery<StudentExam[]>({
-    queryKey: ["/api/exams"],
+  // Define a type that includes examTitle
+  type StudentExamWithTitle = StudentExam & { examTitle: string };
+
+  // Fetch student exams - update endpoint to use stud-exams
+  const { data: studentExams, isLoading } = useQuery({
+    queryKey: ["/api/stud-exams"], // Updated endpoint
   });
 
   // Mutation to verify exam key
@@ -87,41 +103,25 @@ export default function StudentDashboard() {
   };
 
   // Get recent exams (last 3)
-  const recentExams = exams?.slice(0, 3) || [];
+  const recentExams = Array.isArray(studentExams)
+    ? studentExams.slice(0, 3)
+    : [];
 
-  // Calculate stats
-  const completedExams =
-    exams?.filter((exam) => exam.status === "completed").length || 0;
-
-  // Calculate average score
-  let averageScore = 0;
-  const completedExamsWithScores =
-    exams?.filter(
-      (exam) => exam.status === "completed" && exam.score !== null
-    ) || [];
-
-  if (completedExamsWithScores.length > 0) {
-    const totalScore = completedExamsWithScores.reduce(
-      (sum, exam) => sum + (exam.score || 0),
-      0
-    );
-    averageScore = Math.round(totalScore / completedExamsWithScores.length);
-  }
-
-  // Calculate best score
-  const bestScore =
-    completedExamsWithScores.length > 0
-      ? Math.max(...completedExamsWithScores.map((exam) => exam.score || 0))
-      : 0;
+  // Calculate stats - only keeping completed exams count
+  const completedExams = Array.isArray(studentExams)
+    ? studentExams.filter((exam) => exam.status === "completed").length
+    : 0;
 
   return (
     <DashboardLayout>
       <div className="container mx-auto px-6 py-8">
         <h3 className="text-gray-700 text-2xl font-medium">Dashboard</h3>
 
-        {/* Stats Cards */}
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Card>
+        {/* Stats Cards - Reduced width border */}
+        <div className="mt-4">
+          <Card className="border-[1px]">
+            {" "}
+            {/* Reduced border width from default 2px to 1px */}
             <CardContent className="p-6">
               <div className="flex items-center">
                 <div className="p-3 rounded-full bg-green-100 text-green-600">
@@ -136,50 +136,6 @@ export default function StudentDashboard() {
                   ) : (
                     <p className="text-2xl font-semibold text-gray-700">
                       {completedExams}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="p-3 rounded-full bg-blue-100 text-blue-600">
-                  <GraduationCap className="h-6 w-6" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">
-                    Average Score
-                  </p>
-                  {isLoading ? (
-                    <Skeleton className="h-8 w-16" />
-                  ) : (
-                    <p className="text-2xl font-semibold text-gray-700">
-                      {averageScore}%
-                    </p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="p-3 rounded-full bg-primary-100 text-primary-600">
-                  <Medal className="h-6 w-6" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">
-                    Best Score
-                  </p>
-                  {isLoading ? (
-                    <Skeleton className="h-8 w-16" />
-                  ) : (
-                    <p className="text-2xl font-semibold text-gray-700">
-                      {bestScore}%
                     </p>
                   )}
                 </div>
@@ -254,19 +210,37 @@ export default function StudentDashboard() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Exam</TableHead>
-                    <TableHead>Date</TableHead>
+                    <TableHead>Started</TableHead>
+                    <TableHead>Completed</TableHead>
                     <TableHead>Score</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {recentExams.map((exam) => (
                     <TableRow key={exam.id}>
                       <TableCell>
-                        <div className="font-medium">{exam.examId}</div>
+                        <Link href={`/student/exams/${exam.examId}`}>
+                          <div className="cursor-pointer">
+                            <div className="font-medium hover:underline">
+                              Exam #{exam.examId}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {exam.examTitle || ""}
+                            </div>
+                          </div>
+                        </Link>
                       </TableCell>
-                      <TableCell>{formatDate(exam.startedAt)}</TableCell>
+                      <TableCell>
+                        {exam.startedAt
+                          ? formatDateWithTime(exam.startedAt)
+                          : "-"}
+                      </TableCell>
+                      <TableCell>
+                        {exam.submittedAt
+                          ? formatDateWithTime(exam.submittedAt)
+                          : "-"}
+                      </TableCell>
                       <TableCell>
                         {exam.score !== null ? `${exam.score}%` : "-"}
                       </TableCell>
@@ -287,13 +261,6 @@ export default function StudentDashboard() {
                           <Badge variant="outline">In Progress</Badge>
                         )}
                       </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="link" asChild>
-                          <Link href={`/student/exams/${exam.examId}`}>
-                            View
-                          </Link>
-                        </Button>
-                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -310,9 +277,9 @@ export default function StudentDashboard() {
             </Card>
           )}
 
-          {exams && exams.length > 3 && (
+          {Array.isArray(studentExams) && studentExams.length > 3 && (
             <div className="mt-4 text-center">
-              <Button variant="link" asChild>
+              <Button variant="outline" asChild>
                 <Link href="/student/exams">View All Exams</Link>
               </Button>
             </div>

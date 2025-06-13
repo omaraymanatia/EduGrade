@@ -8,27 +8,39 @@ import { Link } from "wouter";
 import { StudentExam } from "@shared/schema";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
-import { formatDate, formatTimeAgo } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
+
+const formatDateWithTime = (date: Date | string | null): string => {
+  if (!date) return "-";
+  const dateObj = date instanceof Date ? date : new Date(date);
+  return dateObj.toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
 
 export default function StudentExams() {
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Fetch exams taken by this student
-  const { data: studentExams, isLoading } = useQuery<StudentExam[]>({
-    queryKey: ["/api/exams"],
+  // Fetch exams taken by this student - update endpoint to use stud-exams
+  const { data: studentExams, isLoading } = useQuery({
+    queryKey: ["/api/stud-exams"], // Updated endpoint
   });
 
-  // Filter exams based on search query (basic implementation)
+  // Filter exams based on search query
   const filteredExams =
     studentExams?.filter(
       (exam) =>
-        // Since we don't have the actual exam title in the student exam object,
-        // we're just filtering by ID and date for demonstration
         exam.id.toString().includes(searchQuery.toLowerCase()) ||
         exam.examId.toString().includes(searchQuery.toLowerCase()) ||
+        (exam.examTitle &&
+          exam.examTitle.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (exam.startedAt &&
-          formatDate(exam.startedAt)
+          formatDate(new Date(exam.startedAt))
             .toLowerCase()
             .includes(searchQuery.toLowerCase()))
     ) || [];
@@ -36,21 +48,31 @@ export default function StudentExams() {
   const columns = [
     {
       header: "Exam",
-      accessorKey: "examId" as keyof StudentExam,
-      cell: (exam: StudentExam) => (
-        <div className="font-medium">Exam #{exam.examId}</div>
+      accessorKey: "examId",
+      cell: (exam) => (
+        <Link href={`/student/exams/${exam.examId}`}>
+          <div className="cursor-pointer">
+            <div className="font-medium hover:underline">
+              Exam #{exam.examId}
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">
+              {exam.examTitle}
+            </div>
+          </div>
+        </Link>
       ),
     },
     {
       header: "Started At",
-      accessorKey: "startedAt" as keyof StudentExam,
-      cell: (exam: StudentExam) => formatDate(exam.startedAt),
+      accessorKey: "startedAt",
+      cell: (exam) =>
+        exam.startedAt ? formatDateWithTime(exam.startedAt) : "-",
     },
     {
       header: "Completed At",
-      accessorKey: "completedAt" as keyof StudentExam,
-      cell: (exam: StudentExam) =>
-        exam.submittedAt ? formatDate(exam.submittedAt) : "-",
+      accessorKey: "submittedAt",
+      cell: (exam) =>
+        exam.submittedAt ? formatDateWithTime(exam.submittedAt) : "-",
     },
     {
       header: "Score",
@@ -76,17 +98,6 @@ export default function StudentExams() {
           return <Badge variant="outline">In Progress</Badge>;
         }
       },
-    },
-    {
-      header: "Actions",
-      accessorKey: "id" as keyof StudentExam,
-      cell: (exam: StudentExam) => (
-        <Button variant="link" asChild>
-          <Link href={`/student/exams/${exam.examId}`}>
-            {exam.status === "in_progress" ? "Continue" : "View"}
-          </Link>
-        </Button>
-      ),
     },
   ];
 

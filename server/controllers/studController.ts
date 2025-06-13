@@ -301,3 +301,34 @@ export const completeExam = catchAsync(
     }
   }
 );
+
+// Add new endpoint to get exams with details
+export const getStudentExams = catchAsync(
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const user = await getUserFromRequest(req);
+
+    // Fetch all student exams with their related exam data
+    const studentExamsData = await db.query.studentExams.findMany({
+      where: eq(studentExams.studentId, user.id),
+      orderBy: (exams, { desc }) => [desc(exams.startedAt)],
+      with: {
+        exam: {
+          columns: {
+            id: true,
+            title: true,
+            courseCode: true,
+          },
+        },
+      },
+    });
+
+    // Format the response to include exam title directly
+    const formattedExams = studentExamsData.map((exam) => ({
+      ...exam,
+      examTitle: exam.exam.title,
+      courseCode: exam.exam.courseCode,
+    }));
+
+    res.json(formattedExams);
+  }
+);
