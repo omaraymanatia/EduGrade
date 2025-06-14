@@ -10,5 +10,10 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
+// Configure Neon to use WebSockets
+neonConfig.webSocketConstructor = ws;
+// Optional: Increase timeout for long-running queries
+neonConfig.connectionTimeoutMillis = 60000;
+
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 export const db = drizzle({ client: pool, schema });
