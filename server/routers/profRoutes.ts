@@ -6,6 +6,12 @@ import checkVlmService from "../middlewares/checkVlmService";
 
 const router: Router = express.Router();
 
+// Remove the /me route which is not defined in profController
+// router.get('/me', authController.protect, profController.me);
+
+// Use authController.me instead if you need user profile data
+router.get("/me", authController.protect, authController.me);
+
 router
   .route("/exams")
   .get(
@@ -35,7 +41,5 @@ router
   .put(profController.updateExam) // Changed from PATCH to PUT for the full update
   .patch(profController.updateExam)
   .delete(profController.deleteExam);
-
-// The upload routes are handled in index.ts with multer
 
 export default router;

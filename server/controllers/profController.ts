@@ -203,6 +203,7 @@ export const createExam = catchAsync(
       ...req.body,
       creatorId: user.id,
       examKey,
+      isActive: true, // Force isActive to true regardless of input
     });
 
     // Create the exam
