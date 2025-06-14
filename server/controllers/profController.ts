@@ -389,11 +389,16 @@ export const uploadExamPhotos = catchAsync(
         // Get model answer based on question type
         let modelAnswer = q.modelAnswer || "";
         if (questionType === QuestionType.enum.multiple_choice && q.options) {
-          // For MCQs, use the correct option as model answer if not explicitly set
-          if (!modelAnswer) {
-            const correctOption = q.options.find((opt) => opt.isCorrect);
-            if (correctOption) {
-              modelAnswer = correctOption.text;
+          // For MCQs, convert to a, b, c, d format based on which option is correct
+          if (q.options && q.options.length > 0) {
+            const correctOptionIndex = q.options.findIndex(
+              (opt) => opt.isCorrect
+            );
+            if (correctOptionIndex !== -1) {
+              const optionIdentifiers = ["a", "b", "c", "d", "e", "f"];
+              modelAnswer =
+                optionIdentifiers[correctOptionIndex] ||
+                String.fromCharCode(97 + correctOptionIndex);
             }
           }
         }
@@ -412,6 +417,7 @@ export const uploadExamPhotos = catchAsync(
           text: q.text.substring(0, 30) + "...",
           type: questionType,
           options: q.type === "multiple_choice" ? q.options.length : 0,
+          model_answer: modelAnswer,
         });
 
         const [question] = await db
@@ -802,13 +808,33 @@ export const updateExam = catchAsync(
           }
         } else {
           // Create new question
+          let model_answer =
+            question.modelAnswer || question.model_answer || "";
+
+          // For MCQ, convert model_answer to option identifier
+          if (
+            question.type === QuestionType.enum.multiple_choice &&
+            question.options
+          ) {
+            const correctOptionIndex = question.options.findIndex(
+              (opt: any) => opt.isCorrect
+            );
+
+            if (correctOptionIndex !== -1) {
+              const optionIdentifiers = ["a", "b", "c", "d", "e", "f"];
+              model_answer =
+                optionIdentifiers[correctOptionIndex] ||
+                String.fromCharCode(97 + correctOptionIndex);
+            }
+          }
+
           const newQuestion = {
             examId: examId,
             text: question.text,
             type: question.type,
             points: questionPoints,
             order: i + 1,
-            model_answer: question.modelAnswer || question.model_answer || "",
+            model_answer,
           };
 
           console.log("Creating new question with points:", questionPoints);
