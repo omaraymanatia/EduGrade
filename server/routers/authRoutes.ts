@@ -12,6 +12,6 @@ router.patch(
   authController.updatePassword
 );
 router.get("/user", authController.protect, authController.me); // Changed to authController.me
-router.get("/logout", authController.logout); // Added logout route
+router.post("/logout", authController.logout); // Added logout route
 
 export default router;
