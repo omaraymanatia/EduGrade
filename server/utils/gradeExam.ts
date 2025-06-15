@@ -2,20 +2,58 @@
 import { db } from "@shared/index";
 import { eq, inArray } from "drizzle-orm";
 import { studentAnswers, studentExams, questions } from "@shared/schema";
-import { detectAIUsage } from "./aiDetection";
+import {
+  detectAIUsage,
+  isAIGenerated,
+  getHumanProbability,
+} from "./aiDetection";
+import {
+  checkSimilarity,
+  calculateScoreFromSimilarity,
+} from "./similarityCheck";
 import { QuestionType } from "@shared/schema";
 
 export async function gradeExam(SstudentExamId: number) {
   console.log("Grading exam for studentExamId:", SstudentExamId);
 
-  // Fetch all answers for this studentExamId
-  const answers = await db.query.studentAnswers.findMany({
-    where: eq(studentAnswers.studentExamId, SstudentExamId),
-  });
+  // Add a retry mechanism for fetching answers
+  let retries = 3;
+  let answers = [];
+
+  while (retries > 0) {
+    // Fetch all answers for this studentExamId
+    answers = await db.query.studentAnswers.findMany({
+      where: eq(studentAnswers.studentExamId, SstudentExamId),
+    });
+
+    if (answers && answers.length > 0) {
+      break;
+    }
+
+    console.log(`No answers found yet, retrying... (${retries} attempts left)`);
+    retries--;
+    // Wait a bit before retrying
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
 
   if (!answers || answers.length === 0) {
-    console.log("No answers found for studentExamId:", SstudentExamId);
-    return;
+    console.log(
+      "No answers found after retries for studentExamId:",
+      SstudentExamId
+    );
+    // Mark the exam as completed with score 0
+    const finalUpdateResult = await db
+      .update(studentExams)
+      .set({
+        score: 0,
+        AI_detected: 0,
+        status: "completed",
+        submittedAt: new Date(),
+      })
+      .where(eq(studentExams.id, SstudentExamId))
+      .returning();
+
+    return finalUpdateResult[0];
   }
 
   console.log("Fetched answers:", answers);
@@ -61,17 +99,63 @@ export async function gradeExam(SstudentExamId: number) {
         continue;
       }
 
-      // Check if answer is AI generated
-      const isAI = await detectAIUsage(ans.answer);
-      const points = isAI === "Machine-Generated" ? 0 : question.points;
+      // Get AI detection results
+      const aiDetectionResults = await detectAIUsage(ans.answer);
+      const isAI = isAIGenerated(aiDetectionResults);
+      const humanProbability = getHumanProbability(aiDetectionResults);
 
-      console.log("Points:", points, "isAI:", isAI);
+      // Get similarity results if model answer exists
+      let similarityScore = 0;
+      if (question.model_answer) {
+        const similarityResults = await checkSimilarity(
+          question.text,
+          question.model_answer,
+          ans.answer
+        );
+
+        // Calculate score based on similarity
+        similarityScore = calculateScoreFromSimilarity(
+          similarityResults,
+          question.points
+        );
+      }
+
+      // Calculate final points based on both AI detection and similarity
+      let points = 0;
+
+      if (isAI) {
+        // If AI-generated, reduce score significantly
+        totalAIDetected += 1;
+        // Still give some points based on similarity if detected
+        points = Math.round(similarityScore * 0.3); // Reduce to 30% of similarity score
+      } else if (similarityScore > 0) {
+        // If human-written and we have similarity score
+        // Scale by human probability to adjust for confidence
+        points = Math.round(similarityScore * humanProbability);
+      } else {
+        // If no similarity score, use human probability directly
+        points = Math.round(question.points * humanProbability);
+      }
+
+      // Cap points at the question's maximum
+      points = Math.min(points, question.points);
+
+      console.log(
+        "Final points:",
+        points,
+        "AI detected:",
+        isAI,
+        "Human probability:",
+        humanProbability,
+        "Similarity score:",
+        similarityScore
+      );
 
       // Wait for the update to complete
       const updateResult = await db
         .update(studentAnswers)
         .set({
-          isCorrect: points > 0,
+          isCorrect: points > question.points * 0.5, // More than 50% is considered correct
           points,
         })
         .where(eq(studentAnswers.id, ans.id))
@@ -80,7 +164,6 @@ export async function gradeExam(SstudentExamId: number) {
       console.log("Update result:", updateResult);
 
       totalScore += points;
-      if (isAI === "Machine-Generated") totalAIDetected += 1;
     } else if (question.type === QuestionType.enum.multiple_choice) {
       console.log(
         "Grading MCQ question:",

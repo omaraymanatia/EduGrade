@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, count as drizzleCount } from "drizzle-orm";
 
 import AppError from "../utils/appError";
 import catchAsync from "../utils/catchAsync";
@@ -205,42 +205,45 @@ export const submitAnswer = catchAsync(
 
     let studentAnswer;
 
-    if (existingAnswer) {
-      // Update existing answer
-      const [updatedAnswer] = await db
-        .update(studentAnswers)
-        .set({
-          answer: formattedAnswer,
+    // Use a transaction to ensure the answer is saved atomically
+    await db.transaction(async (tx) => {
+      if (existingAnswer) {
+        // Update existing answer
+        const [updatedAnswer] = await tx
+          .update(studentAnswers)
+          .set({
+            answer: formattedAnswer,
+            selectedOptionId,
+            isCorrect,
+            points,
+          })
+          .where(eq(studentAnswers.id, existingAnswer.id))
+          .returning();
+
+        studentAnswer = updatedAnswer;
+        console.log("Updated existing answer:", updatedAnswer);
+      } else {
+        // Create new answer
+        const studentAnswerData = insertStudentAnswerSchema.parse({
+          studentExamId,
+          questionId,
+          answer: formattedAnswer, // Use the formatted answer (option identifier for MCQs)
           selectedOptionId,
-          isCorrect,
-          points,
-        })
-        .where(eq(studentAnswers.id, existingAnswer.id))
-        .returning();
+        });
 
-      studentAnswer = updatedAnswer;
-      console.log("Updated existing answer:", updatedAnswer);
-    } else {
-      // Create new answer
-      const studentAnswerData = insertStudentAnswerSchema.parse({
-        studentExamId,
-        questionId,
-        answer: formattedAnswer, // Use the formatted answer (option identifier for MCQs)
-        selectedOptionId,
-      });
+        const [newAnswer] = await tx
+          .insert(studentAnswers)
+          .values({
+            ...studentAnswerData,
+            isCorrect,
+            points,
+          })
+          .returning();
 
-      const [newAnswer] = await db
-        .insert(studentAnswers)
-        .values({
-          ...studentAnswerData,
-          isCorrect,
-          points,
-        })
-        .returning();
-
-      studentAnswer = newAnswer;
-      console.log("Created new answer:", newAnswer);
-    }
+        studentAnswer = newAnswer;
+        console.log("Created new answer:", newAnswer);
+      }
+    });
 
     res.status(201).json(studentAnswer);
   }
@@ -272,10 +275,41 @@ export const completeExam = catchAsync(
     }
 
     console.log("Starting grading for studentExamId:", studentExamId);
-    try {
-      // Call gradeExam function to grade the exam and get the updated record directly
-      await new Promise((resolve) => setTimeout(resolve, 100));
 
+    try {
+      // Add a delay to ensure any in-flight answer submissions have completed
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Double check that we have answers before grading
+      const answerCount = await db
+        .select({ count: drizzleCount() })
+        .from(studentAnswers)
+        .where(eq(studentAnswers.studentExamId, studentExamId))
+        .then((rows) => rows[0]?.count || 0);
+
+      console.log(
+        `Found ${answerCount} answers to grade for exam ${studentExamId}`
+      );
+
+      if (answerCount === 0) {
+        console.log("No answers found yet, marking as completed with 0 score");
+        // If no answers, just mark as completed with 0 score
+        const [updated] = await db
+          .update(studentExams)
+          .set({
+            score: 0,
+            AI_detected: 0,
+            status: "completed",
+            submittedAt: new Date(),
+          })
+          .where(eq(studentExams.id, studentExamId))
+          .returning();
+
+        res.json(updated);
+        return;
+      }
+
+      // Call gradeExam function to grade the exam and get the updated record
       const updatedAttempt = await gradeExam(studentExamId);
 
       if (!updatedAttempt) {
