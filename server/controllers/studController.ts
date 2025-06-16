@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
-import { eq, and, inArray, count as drizzleCount } from "drizzle-orm";
+import { eq, and, inArray, count as drizzleCount, desc } from "drizzle-orm";
 
 import AppError from "../utils/appError";
 import catchAsync from "../utils/catchAsync";
@@ -364,5 +364,99 @@ export const getStudentExams = catchAsync(
     }));
 
     res.json(formattedExams);
+  }
+);
+
+// Fix the getStudentExamById function to resolve the SQL syntax error
+export const getStudentExamById = catchAsync(
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const examId = parseInt(req.params.id);
+
+    if (isNaN(examId)) {
+      return next(new AppError("Valid exam ID is required", 400));
+    }
+
+    const user = await getUserFromRequest(req);
+
+    // Get the student exam attempt for this exam - fix the ordering syntax
+    const studentExam = await db
+      .select()
+      .from(studentExams)
+      .where(
+        and(
+          eq(studentExams.examId, examId),
+          eq(studentExams.studentId, user.id)
+        )
+      )
+      // Fix the ordering syntax
+      .orderBy(studentExams.id, "desc")
+      .limit(1)
+      .then((rows) => rows[0]);
+
+    if (!studentExam) {
+      return next(new AppError("No exam attempt found", 404));
+    }
+
+    // Get the exam details
+    const exam = await db
+      .select()
+      .from(exams)
+      .where(eq(exams.id, examId))
+      .then((rows) => rows[0]);
+
+    if (!exam) {
+      return next(new AppError("Exam not found", 404));
+    }
+
+    // Get the exam questions
+    const examQuestions = await db
+      .select()
+      .from(questions)
+      .where(eq(questions.examId, examId))
+      .orderBy(questions.order);
+
+    // For completed exams, include answers
+    let studentAnswersArr: any[] = [];
+    if (studentExam.status === "completed") {
+      studentAnswersArr = await db
+        .select()
+        .from(studentAnswers)
+        .where(eq(studentAnswers.studentExamId, studentExam.id));
+    }
+
+    // Get options for multiple choice questions
+    const questionIds = examQuestions.map((q) => q.id);
+    const questionOptions =
+      questionIds.length > 0
+        ? await db
+            .select()
+            .from(options)
+            .where(inArray(options.questionId, questionIds))
+            .orderBy(options.order)
+        : [];
+
+    // Organize options by question ID
+    const optionsByQuestionId = questionOptions.reduce((acc, option) => {
+      if (!acc[option.questionId]) {
+        acc[option.questionId] = [];
+      }
+      acc[option.questionId].push(option);
+      return acc;
+    }, {} as Record<number, typeof questionOptions>);
+
+    // Format questions with their options
+    const formattedQuestions = examQuestions.map((question) => ({
+      ...question,
+      options: optionsByQuestionId[question.id] || [],
+    }));
+
+    res.json({
+      studentExam,
+      exam: {
+        ...exam,
+        questions: formattedQuestions,
+      },
+      answers: studentAnswersArr,
+    });
   }
 );

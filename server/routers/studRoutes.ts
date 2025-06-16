@@ -35,5 +35,11 @@ router.get(
   authController.restrictTo("student"),
   studController.getStudentExams
 );
+router.get(
+  "/student-exam/:id",
+  authController.protect,
+  authController.restrictTo("student"),
+  studController.getStudentExamById
+);
 
 export default router;

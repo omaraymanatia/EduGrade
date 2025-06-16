@@ -11,7 +11,13 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowRight, CheckCircle, XCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+} from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
@@ -23,9 +29,16 @@ export default function StudentExamReview() {
   const [, navigate] = useLocation();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
-  // Fetch the studentExam with answers and the exam with questions
-  const { data: examData, isLoading } = useQuery({
-    queryKey: [`/api/student-exams/${id}`],
+  // Define the expected shape of the examData
+  interface ExamReviewData {
+    studentExam: any;
+    exam: any;
+    answers: any[];
+  }
+
+  // Update the query to use the new student-exam endpoint
+  const { data: examData, isLoading } = useQuery<ExamReviewData>({
+    queryKey: [`/api/student-exam/${id}`],
     enabled: !!id,
   });
 
@@ -173,58 +186,64 @@ export default function StudentExamReview() {
             {currentQuestion.type === "multiple_choice" &&
               currentQuestion.options && (
                 <div className="space-y-3">
-                  {currentQuestion.options.map((option: any) => {
-                    const isStudentSelectedOption =
-                      option.id === studentAnswer?.selectedOptionId;
-                    const isActualCorrectOption = option.isCorrect;
+                  <RadioGroup
+                    value={studentAnswer?.selectedOptionId?.toString() || ""}
+                    disabled
+                  >
+                    {currentQuestion.options.map((option: any) => {
+                      const isStudentSelectedOption =
+                        option.id === studentAnswer?.selectedOptionId;
+                      const isActualCorrectOption = option.isCorrect;
 
-                    let optionClassName =
-                      "flex items-center space-x-3 p-3 border rounded-md transition-colors";
-                    let icon = null;
+                      let optionClassName =
+                        "flex items-center space-x-3 p-3 border rounded-md transition-colors";
+                      let icon = null;
 
-                    if (isStudentSelectedOption) {
-                      if (isActualCorrectOption) {
+                      if (isStudentSelectedOption) {
+                        if (isActualCorrectOption) {
+                          optionClassName +=
+                            " bg-green-100 border-green-300 text-green-800";
+                          icon = (
+                            <CheckCircle className="h-5 w-5 text-green-600" />
+                          );
+                        } else {
+                          optionClassName +=
+                            " bg-red-100 border-red-300 text-red-800";
+                          icon = <XCircle className="h-5 w-5 text-red-600" />;
+                        }
+                      } else if (isActualCorrectOption) {
+                        // Style for the correct option if not selected by the student
                         optionClassName +=
-                          " bg-green-100 border-green-300 text-green-800";
+                          " bg-green-50 border-green-200 text-green-700";
+                        // Optionally, add an icon to indicate this was the correct answer
                         icon = (
-                          <CheckCircle className="h-5 w-5 text-green-600" />
+                          <CheckCircle className="h-5 w-5 text-green-500 opacity-70" />
                         );
                       } else {
-                        optionClassName +=
-                          " bg-red-100 border-red-300 text-red-800";
-                        icon = <XCircle className="h-5 w-5 text-red-600" />;
+                        optionClassName += " bg-gray-50 border-gray-200";
                       }
-                    } else if (isActualCorrectOption) {
-                      // Style for the correct option if not selected by the student
-                      optionClassName +=
-                        " bg-green-50 border-green-200 text-green-700";
-                      // Optionally, add an icon to indicate this was the correct answer
-                      icon = (
-                        <CheckCircle className="h-5 w-5 text-green-500 opacity-70" />
-                      );
-                    } else {
-                      optionClassName += " bg-gray-50 border-gray-200";
-                    }
 
-                    return (
-                      <div key={option.id} className={optionClassName}>
-                        <RadioGroupItem // Visually represents a radio button
-                          id={`option-${option.id}`}
-                          value={option.id.toString()}
-                          checked={isStudentSelectedOption} // Show if this was the student's selection
-                          disabled // Non-interactive in review mode
-                          className="border-gray-400 data-[state=checked]:border-primary"
-                        />
-                        <Label
-                          htmlFor={`option-${option.id}`}
-                          className="flex-1 cursor-default"
-                        >
-                          {option.text}
-                        </Label>
-                        {icon} {/* Display the icon determined above */}
-                      </div>
-                    );
-                  })}
+                      return (
+                        <div key={option.id} className={optionClassName}>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem
+                              id={`option-${option.id}`}
+                              value={option.id.toString()}
+                              disabled // Non-interactive in review mode
+                              className="border-gray-400 data-[state=checked]:border-primary"
+                            />
+                            <Label
+                              htmlFor={`option-${option.id}`}
+                              className="flex-1 cursor-default"
+                            >
+                              {option.text}
+                            </Label>
+                          </div>
+                          {icon && <div className="ml-auto">{icon}</div>}
+                        </div>
+                      );
+                    })}
+                  </RadioGroup>
                 </div>
               )}
 
@@ -238,6 +257,40 @@ export default function StudentExamReview() {
                   <div className="p-3 bg-gray-50 border rounded-md">
                     {studentAnswer?.answer || "No answer provided"}
                   </div>
+
+                  {/* Add AI detection indicator */}
+                  {studentAnswer && (
+                    <div className="mt-2 flex items-center">
+                      {studentAnswer.AI_detected ? (
+                        <Badge
+                          variant="outline"
+                          className="bg-amber-50 text-amber-700 border-amber-200"
+                        >
+                          <AlertTriangle className="h-3.5 w-3.5 mr-1" />
+                          AI-generated content detected
+                        </Badge>
+                      ) : (
+                        <div className="mt-2 flex items-center gap-2">
+                          {studentAnswer?.points !== null && (
+                            <Badge
+                              variant="outline"
+                              className="bg-green-50 text-green-700 border-green-200"
+                            >
+                              Points: {studentAnswer.points}/
+                              {currentQuestion.points}
+                            </Badge>
+                          )}
+                          <Badge
+                            variant="outline"
+                            className="bg-blue-50 text-blue-700 border-blue-200"
+                          >
+                            <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                            No AI content detected
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -249,20 +302,44 @@ export default function StudentExamReview() {
                   </div>
                 </div>
 
-                {studentAnswer?.isCorrect !== null && (
-                  <div className="mt-4">
-                    <Badge
-                      variant={
-                        studentAnswer?.isCorrect ? "default" : "destructive"
-                      }
-                      className="text-sm"
-                    >
-                      {studentAnswer?.isCorrect ? "Correct" : "Incorrect"}
-                    </Badge>
+                {studentAnswer?.isCorrect !== null &&
+                  !studentAnswer.AI_detected && (
+                    <div className="mt-4">
+                      <Badge
+                        variant={
+                          studentAnswer?.isCorrect ? "default" : "destructive"
+                        }
+                        className="text-sm"
+                      >
+                        {studentAnswer?.isCorrect ? "Correct" : "Incorrect"}
+                      </Badge>
+                      {studentAnswer?.points !== null && (
+                        <span className="ml-2 text-sm">
+                          Points: {studentAnswer.points}/
+                          {currentQuestion.points}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                {/* If AI was detected, show scoring impact message */}
+                {studentAnswer?.AI_detected && (
+                  <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-md">
+                    <div className="flex items-center">
+                      <AlertTriangle className="h-5 w-5 text-amber-500 mr-2" />
+                      <h4 className="text-sm font-medium text-amber-700">
+                        AI-generated content impact:
+                      </h4>
+                    </div>
+                    <p className="text-sm text-amber-600 mt-1">
+                      AI-generated content was detected in this answer. Points
+                      have been reduced according to the exam policy.
+                    </p>
                     {studentAnswer?.points !== null && (
-                      <span className="ml-2 text-sm">
-                        Points: {studentAnswer.points}/{currentQuestion.points}
-                      </span>
+                      <p className="text-sm font-medium mt-2">
+                        Final points: {studentAnswer.points}/
+                        {currentQuestion.points}
+                      </p>
                     )}
                   </div>
                 )}

@@ -83,6 +83,24 @@ export default function StudentTakeExam() {
     }
   );
 
+  // Fetch student exam details
+  const { data: studentExamData } = useQuery({
+    queryKey: [`/api/student-exam/${examId}`],
+    enabled: !isNaN(examId),
+    onSuccess: (data) => {
+      // If the exam exists and is already completed, redirect to review page
+      if (data?.studentExam && data.studentExam.status === "completed") {
+        navigate(`/student/exam-review/${examId}`);
+        return;
+      }
+
+      // If there's an existing in-progress attempt, use that
+      if (data?.studentExam && data.studentExam.status === "in_progress") {
+        setStudentExamId(data.studentExam.id);
+      }
+    },
+  });
+
   // Timer interval for countdown
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
@@ -136,10 +154,10 @@ export default function StudentTakeExam() {
 
   // Start the exam when data is loaded
   useEffect(() => {
-    if (examDetails && !studentExamId) {
+    if (examDetails && !studentExamId && !startExamMutation.isPending) {
       startExamMutation.mutate();
     }
-  }, [examDetails]);
+  }, [examDetails, studentExamId]);
 
   // Submit a single answer
   const submitAnswerMutation = useMutation({

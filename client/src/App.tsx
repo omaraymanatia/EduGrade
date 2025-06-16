@@ -15,26 +15,48 @@ import StudentDashboard from "./pages/student/dashboard";
 import StudentExams from "./pages/student/exams";
 import StudentTakeExam from "./pages/student/take-exam";
 import StudentProfile from "./pages/student/profile";
+import StudentExamReview from "./pages/student/exam-review";
+
+import { useAuth } from "@/hooks/use-auth";
 
 function Router() {
+  const { user } = useAuth();
+
   return (
     <Switch>
       {/* Auth route */}
       <Route path="/auth" component={AuthPage} />
-      
+
       {/* Professor routes */}
       <ProtectedRoute path="/professor" component={ProfessorDashboard} />
       <ProtectedRoute path="/professor/exams" component={ProfessorExams} />
-      <ProtectedRoute path="/professor/exams/create" component={ProfessorCreateExam} />
-      <ProtectedRoute path="/professor/exams/:id" component={ProfessorExamDetails} />
+      <ProtectedRoute
+        path="/professor/exams/create"
+        component={ProfessorCreateExam}
+      />
+      <ProtectedRoute
+        path="/professor/exams/:id"
+        component={ProfessorExamDetails}
+      />
       <ProtectedRoute path="/professor/profile" component={ProfessorProfile} />
-      
+
       {/* Student routes */}
-      <ProtectedRoute path="/student" component={StudentDashboard} />
-      <ProtectedRoute path="/student/exams" component={StudentExams} />
-      <ProtectedRoute path="/student/exams/:id" component={StudentTakeExam} />
-      <ProtectedRoute path="/student/profile" component={StudentProfile} />
-      
+      {user && user.role === "student" && (
+        <>
+          <ProtectedRoute path="/student" component={StudentDashboard} />
+          <ProtectedRoute path="/student/exams" component={StudentExams} />
+          <ProtectedRoute
+            path="/student/exams/:id"
+            component={StudentTakeExam}
+          />
+          <ProtectedRoute
+            path="/student/exam-review/:id"
+            component={StudentExamReview}
+          />
+          <ProtectedRoute path="/student/profile" component={StudentProfile} />
+        </>
+      )}
+
       {/* Redirect root to auth page */}
       <Route path="/">
         {() => {
@@ -42,7 +64,7 @@ function Router() {
           return null;
         }}
       </Route>
-      
+
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>

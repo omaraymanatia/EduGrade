@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { useLocation } from "wouter";
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,7 @@ const formatDateWithTime = (date: Date | string | null): string => {
 
 export default function StudentExams() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [, navigate] = useLocation();
 
   // Fetch exams taken by this student - update endpoint to use stud-exams
   const { data: studentExams, isLoading } = useQuery({
@@ -45,21 +47,26 @@ export default function StudentExams() {
             .includes(searchQuery.toLowerCase()))
     ) || [];
 
+  // Add this function to handle exam card clicks
+  const handleExamClick = (exam: any) => {
+    if (exam.status === "completed") {
+      navigate(`/student/exam-review/${exam.examId}`);
+    } else {
+      navigate(`/student/exams/${exam.examId}`);
+    }
+  };
+
   const columns = [
     {
       header: "Exam",
       accessorKey: "examId",
       cell: (exam) => (
-        <Link href={`/student/exams/${exam.examId}`}>
-          <div className="cursor-pointer">
-            <div className="font-medium hover:underline">
-              Exam #{exam.examId}
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              {exam.examTitle}
-            </div>
+        <div className="cursor-pointer" onClick={() => handleExamClick(exam)}>
+          <div className="font-medium hover:underline">Exam #{exam.examId}</div>
+          <div className="text-xs text-muted-foreground mt-1">
+            {exam.examTitle}
           </div>
-        </Link>
+        </div>
       ),
     },
     {

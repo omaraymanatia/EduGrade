@@ -112,6 +112,15 @@ export default function StudentDashboard() {
     ? studentExams.filter((exam) => exam.status === "completed").length
     : 0;
 
+  // Add this function to handle exam card clicks
+  const handleExamClick = (exam: any) => {
+    if (exam.status === "completed") {
+      navigate(`/student/exam-review/${exam.examId}`);
+    } else {
+      navigate(`/student/exams/${exam.examId}`);
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="container mx-auto px-6 py-8">
@@ -220,16 +229,17 @@ export default function StudentDashboard() {
                   {recentExams.map((exam) => (
                     <TableRow key={exam.id}>
                       <TableCell>
-                        <Link href={`/student/exams/${exam.examId}`}>
-                          <div className="cursor-pointer">
-                            <div className="font-medium hover:underline">
-                              Exam #{exam.examId}
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-1">
-                              {exam.examTitle || ""}
-                            </div>
+                        <div
+                          className="cursor-pointer"
+                          onClick={() => handleExamClick(exam)}
+                        >
+                          <div className="font-medium hover:underline">
+                            Exam #{exam.examId}
                           </div>
-                        </Link>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {exam.examTitle || ""}
+                          </div>
+                        </div>
                       </TableCell>
                       <TableCell>
                         {exam.startedAt
