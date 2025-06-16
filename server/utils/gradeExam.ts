@@ -18,7 +18,7 @@ export async function gradeExam(SstudentExamId: number) {
 
   // Add a retry mechanism for fetching answers
   let retries = 3;
-  let answers = [];
+  let answers: any[] = [];
 
   while (retries > 0) {
     // Fetch all answers for this studentExamId
