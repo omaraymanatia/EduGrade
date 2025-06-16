@@ -6,11 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import { Link } from "wouter";
-import { StudentExam } from "@shared/schema";
+import { StudentExam as BaseStudentExam } from "@shared/schema";
+
+// Extend StudentExam to include examTitle if it's not present in the base type
+type StudentExam = BaseStudentExam & {
+  examTitle?: string;
+};
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
+import type { Column } from "@/components/ui/data-table";
 
 const formatDateWithTime = (date: Date | string | null): string => {
   if (!date) return "-";
@@ -29,8 +35,13 @@ export default function StudentExams() {
   const [, navigate] = useLocation();
 
   // Fetch exams taken by this student - update endpoint to use stud-exams
-  const { data: studentExams, isLoading } = useQuery({
+  const { data: studentExams = [], isLoading } = useQuery<StudentExam[]>({
     queryKey: ["/api/stud-exams"], // Updated endpoint
+    queryFn: async () => {
+      const res = await fetch("/api/stud-exams");
+      if (!res.ok) throw new Error("Failed to fetch exams");
+      return res.json();
+    },
   });
 
   // Filter exams based on search query
@@ -46,7 +57,6 @@ export default function StudentExams() {
             .toLowerCase()
             .includes(searchQuery.toLowerCase()))
     ) || [];
-
   // Add this function to handle exam card clicks
   const handleExamClick = (exam: any) => {
     if (exam.status === "completed") {
@@ -56,11 +66,11 @@ export default function StudentExams() {
     }
   };
 
-  const columns = [
+  const columns: Column<StudentExam>[] = [
     {
       header: "Exam",
       accessorKey: "examId",
-      cell: (exam) => (
+      cell: (exam: StudentExam) => (
         <div className="cursor-pointer" onClick={() => handleExamClick(exam)}>
           <div className="font-medium hover:underline">Exam #{exam.examId}</div>
           <div className="text-xs text-muted-foreground mt-1">
@@ -72,24 +82,24 @@ export default function StudentExams() {
     {
       header: "Started At",
       accessorKey: "startedAt",
-      cell: (exam) =>
+      cell: (exam: StudentExam) =>
         exam.startedAt ? formatDateWithTime(exam.startedAt) : "-",
     },
     {
       header: "Completed At",
       accessorKey: "submittedAt",
-      cell: (exam) =>
+      cell: (exam: StudentExam) =>
         exam.submittedAt ? formatDateWithTime(exam.submittedAt) : "-",
     },
     {
       header: "Score",
-      accessorKey: "score" as keyof StudentExam,
+      accessorKey: "score",
       cell: (exam: StudentExam) =>
         exam.score !== null ? `${exam.score}%` : "-",
     },
     {
       header: "Status",
-      accessorKey: "status" as keyof StudentExam,
+      accessorKey: "status",
       cell: (exam: StudentExam) => {
         if (exam.status === "completed") {
           return (

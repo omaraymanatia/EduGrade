@@ -86,20 +86,34 @@ export default function StudentTakeExam() {
   // Fetch student exam details
   const { data: studentExamData } = useQuery({
     queryKey: [`/api/student-exam/${examId}`],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/student-exam/${examId}`);
+      return await res.json();
+    },
     enabled: !isNaN(examId),
-    onSuccess: (data) => {
+    // Use the onSuccess callback outside the options object
+  });
+
+  useEffect(() => {
+    if (studentExamData) {
       // If the exam exists and is already completed, redirect to review page
-      if (data?.studentExam && data.studentExam.status === "completed") {
+      if (
+        studentExamData?.studentExam &&
+        studentExamData.studentExam.status === "completed"
+      ) {
         navigate(`/student/exam-review/${examId}`);
         return;
       }
 
       // If there's an existing in-progress attempt, use that
-      if (data?.studentExam && data.studentExam.status === "in_progress") {
-        setStudentExamId(data.studentExam.id);
+      if (
+        studentExamData?.studentExam &&
+        studentExamData.studentExam.status === "in_progress"
+      ) {
+        setStudentExamId(studentExamData.studentExam.id);
       }
-    },
-  });
+    }
+  }, [studentExamData, examId, navigate]);
 
   // Timer interval for countdown
   useEffect(() => {

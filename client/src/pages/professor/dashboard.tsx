@@ -33,7 +33,9 @@ export default function ProfessorDashboard() {
   return (
     <DashboardLayout>
       <div className="container mx-auto px-6 py-8">
-        <h3 className="text-gray-700 text-2xl font-medium">Dashboard</h3>
+        <h3 className="text-gray-700 text-2xl font-medium">
+          Professor Dashboard
+        </h3>
 
         {/* Stats Cards */}
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -389,7 +389,7 @@ export const getStudentExamById = catchAsync(
         )
       )
       // Fix the ordering syntax
-      .orderBy(studentExams.id, "desc")
+      .orderBy(desc(studentExams.id))
       .limit(1)
       .then((rows) => rows[0]);
 

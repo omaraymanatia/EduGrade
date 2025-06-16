@@ -18,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 
-interface Column<T> {
+export interface Column<T> {
   header: string;
   accessorKey: keyof T;
   cell?: (data: T) => React.ReactNode;
@@ -40,7 +40,7 @@ export function DataTable<T>({
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const pageSize = 10;
-  
+
   // Filter data based on search query if searchField is provided
   const filteredData = searchField
     ? data.filter((item) => {
@@ -51,14 +51,14 @@ export function DataTable<T>({
         return true;
       })
     : data;
-  
+
   // Calculate pagination
   const totalPages = Math.ceil(filteredData.length / pageSize);
   const paginatedData = filteredData.slice(
     (currentPage - 1) * pageSize,
     currentPage * pageSize
   );
-  
+
   return (
     <div className="w-full">
       {searchField && (
@@ -76,7 +76,7 @@ export function DataTable<T>({
           />
         </div>
       )}
-      
+
       <div className="border rounded-md">
         <Table>
           <TableHeader>
@@ -89,13 +89,15 @@ export function DataTable<T>({
           <TableBody>
             {paginatedData.length > 0 ? (
               paginatedData.map((row, rowIndex) => (
-                <TableRow 
-                  key={rowIndex} 
+                <TableRow
+                  key={rowIndex}
                   className={onRowClick ? "cursor-pointer hover:bg-muted" : ""}
                   onClick={() => onRowClick && onRowClick(row)}
                 >
                   {columns.map((column) => (
-                    <TableCell key={`${rowIndex}-${String(column.accessorKey)}`}>
+                    <TableCell
+                      key={`${rowIndex}-${String(column.accessorKey)}`}
+                    >
                       {column.cell
                         ? column.cell(row)
                         : (row[column.accessorKey] as React.ReactNode)}
@@ -105,7 +107,10 @@ export function DataTable<T>({
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
                   No results.
                 </TableCell>
               </TableRow>
@@ -113,25 +118,27 @@ export function DataTable<T>({
           </TableBody>
         </Table>
       </div>
-      
+
       {totalPages > 1 && (
         <Pagination className="mt-4">
           <PaginationContent>
             <PaginationItem>
-              <PaginationPrevious 
-                href="#" 
+              <PaginationPrevious
+                href="#"
                 onClick={(e) => {
                   e.preventDefault();
                   if (currentPage > 1) setCurrentPage(currentPage - 1);
                 }}
-                className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                className={
+                  currentPage === 1 ? "pointer-events-none opacity-50" : ""
+                }
               />
             </PaginationItem>
-            
+
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
               <PaginationItem key={page}>
-                <PaginationLink 
-                  href="#" 
+                <PaginationLink
+                  href="#"
                   onClick={(e) => {
                     e.preventDefault();
                     setCurrentPage(page);
@@ -142,15 +149,19 @@ export function DataTable<T>({
                 </PaginationLink>
               </PaginationItem>
             ))}
-            
+
             <PaginationItem>
-              <PaginationNext 
-                href="#" 
+              <PaginationNext
+                href="#"
                 onClick={(e) => {
                   e.preventDefault();
                   if (currentPage < totalPages) setCurrentPage(currentPage + 1);
                 }}
-                className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
+                className={
+                  currentPage === totalPages
+                    ? "pointer-events-none opacity-50"
+                    : ""
+                }
               />
             </PaginationItem>
           </PaginationContent>
