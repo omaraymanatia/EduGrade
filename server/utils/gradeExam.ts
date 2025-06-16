@@ -113,32 +113,34 @@ export async function gradeExam(SstudentExamId: number) {
           ans.answer
         );
 
-        // Calculate score based on similarity
-        similarityScore = calculateScoreFromSimilarity(
-          similarityResults,
-          question.points
-        );
+        // Get average similarity score
+        if (similarityResults && similarityResults.similarity_scores) {
+          similarityScore = similarityResults.similarity_scores.average || 0;
+        }
       }
 
-      // Calculate final points based on both AI detection and similarity
+      // Calculate points based on the similarity thresholds
       let points = 0;
-
-      if (isAI) {
-        // If AI-generated, reduce score significantly
-        totalAIDetected += 1;
-        // Still give some points based on similarity if detected
-        points = Math.round(similarityScore * 0.3); // Reduce to 30% of similarity score
-      } else if (similarityScore > 0) {
-        // If human-written and we have similarity score
-        // Scale by human probability to adjust for confidence
-        points = Math.round(similarityScore * humanProbability);
+      if (similarityScore >= 0.8) {
+        // 100% of points if similarity >= 0.8
+        points = question.points;
+      } else if (similarityScore >= 0.6) {
+        // 75% of points if similarity between 0.6-0.8
+        points = Math.round(question.points * 0.75);
+      } else if (similarityScore >= 0.4) {
+        // 50% of points if similarity between 0.4-0.6
+        points = Math.round(question.points * 0.5);
       } else {
-        // If no similarity score, use human probability directly
-        points = Math.round(question.points * humanProbability);
+        // 0 points if similarity < 0.4
+        points = 0;
       }
 
-      // Cap points at the question's maximum
-      points = Math.min(points, question.points);
+      // Apply AI detection penalty if detected
+      if (isAI) {
+        totalAIDetected += 1;
+        // Reduce score by 70% if AI-generated
+        points = Math.round(points * 0.3);
+      }
 
       console.log(
         "Final points:",

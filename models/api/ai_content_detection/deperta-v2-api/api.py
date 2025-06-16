@@ -33,8 +33,10 @@ except Exception as e:
     logger.error(f"Error loading model: {str(e)}")
     raise
 
+
 class TextRequest(BaseModel):
     text: str
+
 
 class DetectionResponse(BaseModel):
     classification: str
@@ -43,9 +45,11 @@ class DetectionResponse(BaseModel):
     human_probability: float
     machine_probability: float
 
+
 @app.get("/")
 async def root():
     return {"message": "MGT-Detection API is running"}
+
 
 @app.post("/detect", response_model=DetectionResponse)
 async def detect_content(request: TextRequest):
@@ -54,38 +58,35 @@ async def detect_content(request: TextRequest):
         MACHINE_THRESHOLD = 50.0  # threshold for machine-generated classification
 
         # Tokenize and get model output
-        inputs = tokenizer([request.text], padding=True, truncation=True, return_tensors="pt")
-        
+        inputs = tokenizer(
+            [request.text], padding=True, truncation=True, return_tensors="pt"
+        )
+
         with torch.no_grad():
             outputs = model(**inputs)
             logits = outputs.logits.numpy()
-            probabilities = np.exp(logits) / np.sum(np.exp(logits), axis=1, keepdims=True)
+            probabilities = np.exp(logits) / np.sum(
+                np.exp(logits), axis=1, keepdims=True
+            )
 
             # Map the output indices to their respective labels
-            # IMPORTANT: Fixed the label order to match the original app
-            # Original app mapping: TEXT_CLASS_MAPPING = {
-            #    'LABEL_0': 'Human-Written',
-            #    'LABEL_1': 'Human-Written, Machine-Polished'
-            #    'LABEL_2': 'Machine-Generated',
-            #    'LABEL_3': 'Machine-Written, Machine-Humanized'
-            # }
             labels = [
-                "Human-Written",                     # Index 0
-                "Human-Written, Machine-Polished",   # Index 1
-                "Machine-Generated",                 # Index 2
-                "Machine-Written, Machine-Humanized" # Index 3
+                "Human-Written",  # Index 0
+                "Human-Written, Machine-Polished",  # Index 1
+                "Machine-Generated",  # Index 2
+                "Machine-Written, Machine-Humanized",  # Index 3
             ]
-            
-            # Extract only the required probabilities
+
+            # Extract probabilities
             human_prob = probabilities[0, 0]  # Human-Written is at index 0
             machine_prob = probabilities[0, 2]  # Machine-Generated is at index 2
 
         human_percentage = human_prob * 100
         machine_percentage = machine_prob * 100
-        
+
         # Calculate percentage difference and determine confidence
         percentage_diff = abs(machine_percentage - human_percentage)
-        
+
         if percentage_diff <= 40:
             confidence = "Low"
         elif percentage_diff <= 70:
@@ -93,8 +94,8 @@ async def detect_content(request: TextRequest):
         else:
             confidence = "High"
 
-        # Classification logic
-        label = "Machine-Generated" if machine_percentage >= MACHINE_THRESHOLD else "Human-Written"
+        # FIX: Compare probabilities directly and assign label based on which is higher
+        label = "Machine-Generated" if machine_prob > human_prob else "Human-Written"
 
         if confidence == "Low":
             label = "Uncertain but it is likely to be " + label
@@ -102,19 +103,14 @@ async def detect_content(request: TextRequest):
         return DetectionResponse(
             classification=label,
             confidence=confidence,
-            confidence_score=float(percentage_diff),  # Use actual difference as score
+            confidence_score=float(percentage_diff),
             human_probability=float(human_percentage),
-            machine_probability=float(machine_percentage)
+            machine_probability=float(machine_percentage),
         )
     except Exception as e:
         logger.error(f"Error processing request: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 if __name__ == "__main__":
-    uvicorn.run(
-        "api:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
-    )
+    uvicorn.run("api:app", host="0.0.0.0", port=8000, reload=True, log_level="info")
