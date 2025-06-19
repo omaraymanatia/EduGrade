@@ -31,6 +31,10 @@ AI Grader addresses key challenges in educational assessment:
 
 ### AI-Powered Features
 
+- **Optical Character Recognition**
+  - Gemini model to extract question from exams
+  - Extract student answers from exams
+
 - **Automated Essay Grading**
   - Natural Language Processing for content analysis
   - Semantic similarity scoring
@@ -62,6 +66,7 @@ AI Grader addresses key challenges in educational assessment:
 ### Backend
 
 - FastAPI for high-performance API endpoints
+- Restful API endpoints using Node.js
 - PostgreSQL for reliable data storage
 - Multiple AI/ML models:
   - Sentence Transformers
@@ -84,7 +89,6 @@ AI Grader addresses key challenges in educational assessment:
 
 ### Prerequisites
 
-- Docker
 - Git
 - Node.js (for local development)
 
@@ -97,25 +101,13 @@ AI Grader addresses key challenges in educational assessment:
    cd Grad-Project
    ```
 
-2. Build the Docker image:
-
-   ```bash
-   docker build -t grad-project .
-   ```
-
-3. Run the application:
-
-   ```bash
-   docker run -it -p 5000:5000 -v $(pwd):/app grad-project npm run dev
-   ```
-
 ## 👥 Team Members
 
-- Omar Ayman - AI/ML Integration
-- Saher Mohamed - Backend Development
-- Ziad Mostafa - Frontend Development
-- Zyad Hesham - Database Architecture
-- Osama Ayman - System Design
+- Omar Ayman - Full-Stack developer
+- Saher Mohamed - AI Engineer
+- Ziad Mostafa - AI Engineer
+- Zyad Hesham - AI Engineer
+- Osama Ayman - chill guy
 
 ## 📊 Project Status
 
