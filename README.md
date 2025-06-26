@@ -31,7 +31,7 @@ AI Grader addresses key challenges in educational assessment:
 
 ### AI-Powered Features
 
-- **Optical Character Recognition**
+- **Vision Language Model**
   - Gemini model to extract question from exams
   - Extract student answers from exams
 
@@ -41,7 +41,7 @@ AI Grader addresses key challenges in educational assessment:
   - Grammar and structure evaluation
   - Contextual understanding
 
-- **AI Detection System**
+- **AI Content Detection System**
   - Multiple AI detection models
   - Pattern recognition for AI-generated content
   - Confidence scoring system
