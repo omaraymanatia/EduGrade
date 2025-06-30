@@ -1,6 +1,6 @@
-# AI Grader - Educational Assessment Platform
+# EduGrade - Educational Assessment Platform
 
-AI Grader is an advanced educational assessment platform that leverages artificial intelligence to revolutionize the way educational institutions handle examinations and assessments. The platform combines modern AI technologies with robust educational tools to provide a comprehensive solution for exam creation, administration, and automated grading.
+EduGrade is an advanced educational assessment platform that leverages artificial intelligence to revolutionize the way educational institutions handle examinations and assessments. The platform combines modern AI technologies with robust educational tools to provide a comprehensive solution for exam creation, administration, and automated grading.
 
 ## 🎯 Project Overview
 
